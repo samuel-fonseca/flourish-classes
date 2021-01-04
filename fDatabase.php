@@ -489,6 +489,10 @@ class fDatabase
 				$options[PDO::ATTR_TIMEOUT] = $this->timeout;
 			}
 
+			if ($this->persistent) {
+				$options[PDO::ATTR_PERSISTENT] = true;
+			}
+
 			if ($this->type == 'db2') {
 				if ($this->host === NULL && $this->port === NULL) {
 					$dsn = 'ibm:DSN:' . $this->database;
