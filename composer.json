@@ -15,6 +15,9 @@
     "autoload": {
         "classmap": ["."]
     },
+    "replace": {
+        "flourish/flourish": "1.*"
+    },
     "require": {
         "php": ">=5.1.0"
 	},
