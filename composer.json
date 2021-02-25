@@ -16,7 +16,7 @@
         "classmap": ["."]
     },
     "replace": {
-        "flourish/flourish": "1.*"
+        "flourish/flourish": "1.0.0"
     },
     "require": {
         "php": ">=5.1.0"
