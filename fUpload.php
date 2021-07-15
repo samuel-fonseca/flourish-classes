@@ -613,7 +613,7 @@ class fUpload
 
 		if (!empty($this->mime_types) && file_exists($file_array['tmp_name'])) {
 			$contents = file_get_contents($file_array['tmp_name'], FALSE, NULL, 0, 4096);
-			if (!in_array(fFile::determineMimeType($file_array['name'], $contents), $this->mime_types)) {
+			if (!in_array(fFile::determineMimeType($file_array, $contents), $this->mime_types)) {
 				return self::compose($this->mime_type_message);
 			}
 		}

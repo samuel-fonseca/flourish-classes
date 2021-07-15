@@ -81,12 +81,25 @@ class fFile implements Iterator, Countable
 	 *
 	 * @internal
 	 *
-	 * @param  string $file      The file to check the mime type for - must be a valid filesystem path if no `$contents` are provided, otherwise just a filename
+	 * @param  string|array $file  The file to check the mime type for - must be a valid filesystem path if no `$contents` are provided, otherwise just a filename. Alternative an upload file array can be passed.
 	 * @param  string $contents  The first 4096 bytes of the file content - the `$file` parameter only need be a filename if this is provided
 	 * @return string  The mime type of the file
 	 */
 	static public function determineMimeType($file, $contents=NULL)
 	{
+		$file_array = $file;
+
+		// if first argument was an uploaded file array, set path to tmp_name
+		if (is_array($file_array) && isset($file_array['tmp_name']) && isset($file_array['name'])) {
+			$file = $file['tmp_name'];
+		}
+
+		if (function_exists('mime_content_type')) {
+			return mime_content_type($file);
+		}
+
+		$file = $file_array['file'];
+
 		// If no contents are provided, we must get them
 		if ($contents === NULL) {
 			if (!file_exists($file)) {
