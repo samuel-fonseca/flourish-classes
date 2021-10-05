@@ -1138,7 +1138,8 @@ class fFile implements Iterator, Countable
 			header('Pragma: ');
 		}
 
-		readfile($this->file);
+		$resource = fopen($this->file, 'r');
+		fpassthru($resource);
 
 		return $this;
 	}
