@@ -1115,9 +1115,10 @@ class fFile implements Iterator, Countable
 	 *
 	 * @param  boolean $headers   If HTTP headers for the file should be included
 	 * @param  mixed   $filename  Present the file as an attachment instead of just outputting type headers - if a string is passed, that will be used for the filename, if `TRUE` is passed, the current filename will be used
+     * @param  boolean $use_file_get_contents
 	 * @return fFile  The file object, to allow for method chaining
 	 */
-	public function output($headers, $filename=NULL)
+	public function output($headers, $filename=NULL, $use_file_get_contents=FALSE)
 	{
 		$this->tossIfDeleted();
 
@@ -1138,10 +1139,14 @@ class fFile implements Iterator, Countable
 			header('Pragma: ');
 		}
 
-		$resource = fopen($this->file, 'r');
-		fpassthru($resource);
+        if ($use_file_get_contents == TRUE) {
+            echo file_get_contents($this->file);
+        } else {
+            $resource = fopen($this->file, 'r');
+            fpassthru($resource);
+        }
 
-		return $this;
+        return $this;
 	}
 
 
