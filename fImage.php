@@ -367,7 +367,7 @@ class fImage extends fFile
 		if (self::$exif_image_type_check === false) {
 			$extension = pathinfo($image, PATHINFO_EXTENSION);
 
-			if (in_array($extension, ['jpg', 'tif', 'png', 'gif'])) {
+			if (in_array($extension, ['jpg', 'jpeg', 'tif', 'tiff', 'png', 'gif'])) {
 				return $extension;
 			}
 
