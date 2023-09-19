@@ -1,92 +1,69 @@
 <?php
 /**
- * Provides file manipulation functionality for fActiveRecord classes.
+ * Provides Flysystem file manipulation functionality for fActiveRecord classes.
  *
  * @copyright  Copyright (c) 2008-2010 Will Bond
  * @author     Will Bond [wb] <will@flourishlib.com>
  * @license    http://flourishlib.com/license
  *
- * @see       http://flourishlib.com/fORMFile
- *
- * @version    1.0.0b27
- * @changes    1.0.0b27  Fixed column inheritance to properly handle non-images and inheriting into image upload columns [wb, 2010-09-18]
- * @changes    1.0.0b26  Enhanced ::configureColumnInheritance() to ensure both columns specified have been set up as file upload columns [wb, 2010-08-18]
- * @changes    1.0.0b25  Updated code to work with the new fORM API [wb, 2010-08-06]
- * @changes    1.0.0b24  Changed validation messages array to use column name keys [wb, 2010-05-26]
- * @changes    1.0.0b23  Fixed a bug with ::upload() that could cause a method called on a non-object error in relation to the upload directory not being defined [wb, 2010-05-10]
- * @changes    1.0.0b22  Updated the TEMP_DIRECTORY constant to not include the trailing slash, code now uses DIRECTORY_SEPARATOR to fix issues on Windows [wb, 2010-04-28]
- * @changes    1.0.0b21  Fixed ::set() to perform column inheritance, just like ::upload() does [wb, 2010-03-15]
- * @changes    1.0.0b20  Fixed the `set` and `process` methods to return the record instance, changed `upload` methods to return the fFile object, updated ::reflect() with new return values [wb, 2010-03-15]
- * @changes    1.0.0b19  Fixed a few missed instances of old fFile method names [wb, 2009-12-16]
- * @changes    1.0.0b18  Updated code for the new fFile API [wb, 2009-12-16]
- * @changes    1.0.0b17  Updated code for the new fORMDatabase and fORMSchema APIs [wb, 2009-10-28]
- * @changes    1.0.0b16  fImage method calls for file upload columns will no longer cause notices due to a missing image type [wb, 2009-09-09]
- * @changes    1.0.0b15  ::addFImageMethodCall() no longer requires column be an image upload column, inheritance to an image column now only happens for fImage objects [wb, 2009-07-29]
- * @changes    1.0.0b14  Updated to use new fORM::registerInspectCallback() method [wb, 2009-07-13]
- * @changes    1.0.0b13  Updated code for new fORM API [wb, 2009-06-15]
- * @changes    1.0.0b12  Changed replacement values in preg_replace() calls to be properly escaped [wb, 2009-06-11]
- * @changes    1.0.0b11  Updated code to use new fValidationException::formatField() method [wb, 2009-06-04]
- * @changes    1.0.0b10  Fixed a bug where an inherited file upload column would not be properly re-set with an `existing-` input [wb, 2009-05-26]
- * @changes    1.0.0b9   ::upload() and ::set() now set the `$values` entry to `NULL` for filenames that are empty [wb, 2009-03-02]
- * @changes    1.0.0b8   Changed ::set() to accept objects and reject directories [wb, 2009-01-21]
- * @changes    1.0.0b7   Changed the class to use the new fFilesystem::createObject() method [wb, 2009-01-21]
- * @changes    1.0.0b6   Old files are now checked against the current file to prevent removal of an in-use file [wb, 2008-12-23]
- * @changes    1.0.0b5   Fixed ::replicate() to ensure the temp directory exists and ::set() to use the temp directory [wb, 2008-12-23]
- * @changes    1.0.0b4   ::objectify() no longer throws an exception when a file can't be found [wb, 2008-12-18]
- * @changes    1.0.0b3   Added ::replicate() so that replicated files get pu in the temp directory [wb, 2008-12-12]
- * @changes    1.0.0b2   Fixed a bug with objectifying file columns [wb, 2008-11-24]
- * @changes    1.0.0b    The initial implementation [wb, 2008-05-28]
+ * @see       http://flourishlib.com/fORMFlysystemFile
  */
-class fORMFile
+
+use Imarc\VAL\Traits\Flourish\hasTempDir;
+use League\Flysystem\Filesystem;
+
+class fORMFlysystemFile
 {
+    use hasTempDir;
+
     // The following constants allow for nice looking callbacks to static methods
-    public const addFImageMethodCall = 'fORMFile::addFImageMethodCall';
+    public const addFImageMethodCall = 'fORMFlysystemFile::addFImageMethodCall';
 
-    public const addFUploadMethodCall = 'fORMFile::addFUploadMethodCall';
+    public const addFUploadMethodCall = 'fORMFlysystemFile::addFUploadMethodCall';
 
-    public const begin = 'fORMFile::begin';
+    public const begin = 'fORMFlysystemFile::begin';
 
-    public const commit = 'fORMFile::commit';
+    public const commit = 'fORMFlysystemFile::commit';
 
-    public const configureColumnInheritance = 'fORMFile::configureColumnInheritance';
+    public const configureColumnInheritance = 'fORMFlysystemFile::configureColumnInheritance';
 
-    public const configureFileUploadColumn = 'fORMFile::configureFileUploadColumn';
+    public const configureFileUploadColumn = 'fORMFlysystemFile::configureFileUploadColumn';
 
-    public const configureImageUploadColumn = 'fORMFile::configureImageUploadColumn';
+    public const configureImageUploadColumn = 'fORMFlysystemFile::configureImageUploadColumn';
 
-    public const delete = 'fORMFile::delete';
+    public const delete = 'fORMFlysystemFile::delete';
 
-    public const deleteOld = 'fORMFile::deleteOld';
+    public const deleteOld = 'fORMFlysystemFile::deleteOld';
 
-    public const encode = 'fORMFile::encode';
+    public const encode = 'fORMFlysystemFile::encode';
 
-    public const inspect = 'fORMFile::inspect';
+    public const inspect = 'fORMFlysystemFile::inspect';
 
-    public const moveFromTemp = 'fORMFile::moveFromTemp';
+    public const moveFromTemp = 'fORMFlysystemFile::moveFromTemp';
 
-    public const objectify = 'fORMFile::objectify';
+    public const objectify = 'fORMFlysystemFile::objectify';
 
-    public const populate = 'fORMFile::populate';
+    public const populate = 'fORMFlysystemFile::populate';
 
-    public const prepare = 'fORMFile::prepare';
+    public const prepare = 'fORMFlysystemFile::prepare';
 
-    public const process = 'fORMFile::process';
+    public const process = 'fORMFlysystemFile::process';
 
-    public const processImage = 'fORMFile::processImage';
+    public const processImage = 'fORMFlysystemFile::processImage';
 
-    public const reflect = 'fORMFile::reflect';
+    public const reflect = 'fORMFlysystemFile::reflect';
 
-    public const replicate = 'fORMFile::replicate';
+    public const replicate = 'fORMFlysystemFile::replicate';
 
-    public const reset = 'fORMFile::reset';
+    public const reset = 'fORMFlysystemFile::reset';
 
-    public const rollback = 'fORMFile::rollback';
+    public const rollback = 'fORMFlysystemFile::rollback';
 
-    public const set = 'fORMFile::set';
+    public const set = 'fORMFlysystemFile::set';
 
-    public const upload = 'fORMFile::upload';
+    public const upload = 'fORMFlysystemFile::upload';
 
-    public const validate = 'fORMFile::validate';
+    public const validate = 'fORMFlysystemFile::validate';
 
     /**
      * The temporary directory to use for various tasks.
@@ -140,12 +117,11 @@ class fORMFile
     private static $transaction_level = 0;
 
     /**
-     * Forces use as a static class.
-     *
-     * @return fORMFile
+     * @return fORMFlysystemFile
      */
-    private function __construct()
+    private function __construct(fFlysystem $filesystem)
     {
+        $this->filesystem = $filesystem;
     }
 
     /**
@@ -194,7 +170,7 @@ class fORMFile
             throw new fProgrammerException(
                 'The method specified, %1$s, is not compatible with how %2$s stores and associates files with records',
                 $method,
-                'fORMFile'
+                'fORMFlysystemFile'
             );
         }
 
@@ -230,14 +206,14 @@ class fORMFile
     public static function begin()
     {
         // If the transaction was started by something else, don't even track it
-        if (self::$transaction_level == 0 && fFilesystem::isInsideTransaction()) {
+        if (self::$transaction_level == 0 && fFlysystem::isInsideTransaction()) {
             return;
         }
 
         self::$transaction_level++;
 
-        if (! fFilesystem::isInsideTransaction()) {
-            fFilesystem::begin();
+        if (! fFlysystem::isInsideTransaction()) {
+            fFlysystem::begin();
         }
     }
 
@@ -258,7 +234,7 @@ class fORMFile
         self::$transaction_level--;
 
         if (! self::$transaction_level) {
-            fFilesystem::commit();
+            fFlysystem::commit();
         }
     }
 
@@ -294,8 +270,8 @@ class fORMFile
             );
         }
 
-        if (! is_object($directory)) {
-            $directory = new fDirectory($directory);
+        if (! $directory instanceof fFlysystemDirectory) {
+            $directory = new fFlysystemDirectory($directory);
         }
 
         if (! $directory->isWritable()) {
@@ -474,7 +450,7 @@ class fORMFile
 
         foreach (self::$file_upload_columns[$class] as $column => $directory) {
             // Remove the current file for the column
-            if ($values[$column] instanceof fFile) {
+            if ($values[$column] instanceof fFlysystemFile) {
                 $values[$column]->delete();
             }
 
@@ -506,7 +482,7 @@ class fORMFile
         foreach (self::$file_upload_columns[$class] as $column => $directory) {
             $current_file = $values[$column];
             foreach (fActiveRecord::retrieveOld($old_values, $column, [], true) as $file) {
-                if ($file instanceof fFile && (! $current_file instanceof fFile || $current_file->getPath() != $file->getPath())) {
+                if ($file instanceof fFlysystemFile && (! $current_file instanceof fFlysystemFile || $current_file->getPath() != $file->getPath())) {
                     $file->delete();
                 }
             }
@@ -525,18 +501,39 @@ class fORMFile
      * @param array         &$cache           The cache array for the record
      * @param string        $method_name      The method that was called
      * @param array         $parameters       The parameters passed to the method
+     *
+     * @return null|string
      */
-    public static function encode($object, &$values, &$old_values, &$related_records, &$cache, $method_name, $parameters): ?string
+    public static function encode($object, &$values, &$old_values, &$related_records, &$cache, $method_name, $parameters)
     {
         [$action, $subject] = fORM::parseMethod($method_name);
-
         $column = fGrammar::underscorize($subject);
-        $filename = ($values[$column] instanceof fFile) ? $values[$column]->getName() : null;
-        if ($filename && strpos($values[$column]->getPath(), self::TEMP_DIRECTORY.DIRECTORY_SEPARATOR.$filename) !== false) {
-            $filename = self::TEMP_DIRECTORY.DIRECTORY_SEPARATOR.$filename;
+
+        $path = $object->getFileUploadPaths()[$column] ?? null;
+
+        if (! $path) {
+            return;
         }
 
-        return fHTML::encode($filename);
+        $value = $values[$column] ?? null;
+
+        if (! $value) {
+            return;
+        }
+
+        $filename = $path.$values[$column];
+
+        try {
+            $file = new fFlysystemFile($filename);
+        } catch (Exception $e) {
+            return;
+        }
+
+        if ($object->getUseFileRoutes()) {
+            return fHTML::encode($file->getPath());
+        }
+
+        return fHTML::encode(fFlysystemFile::getFlysystem()->getObjectUrl($filename));
     }
 
     /**
@@ -580,7 +577,7 @@ class fORMFile
             // If the file is in a temp dir, move it out
             if (strpos($value->getParent()->getPath(), self::TEMP_DIRECTORY.DIRECTORY_SEPARATOR) !== false) {
                 $new_filename = str_replace(self::TEMP_DIRECTORY.DIRECTORY_SEPARATOR, '', $value->getPath());
-                $new_filename = fFilesystem::makeUniqueName($new_filename);
+                $new_filename = fFlysystem::makeUniqueName($new_filename);
                 $value->rename($new_filename, false);
             }
         }
@@ -629,7 +626,11 @@ class fORMFile
         $class = get_class($object);
 
         foreach (self::$file_upload_columns[$class] as $column => $directory) {
-            if (fUpload::check($column) || fRequest::check('existing-'.$column) || fRequest::check('delete-'.$column)) {
+            if (
+                fUpload::check($column)
+                || fRequest::check('existing-'.$column)
+                || fRequest::check('delete-'.$column)
+            ) {
                 $method = 'upload'.fGrammar::camelize($column, true);
                 $object->{$method}();
             }
@@ -664,10 +665,17 @@ class fORMFile
         $translate_to_web_path = (empty($parameters[0])) ? false : true;
         $value = $values[$column];
 
-        if ($value instanceof fFile) {
-            $path = ($translate_to_web_path) ? $value->getPath(true) : $value->getName();
+        if ($value instanceof fFlysystemFile) {
+            $path = ($translate_to_web_path) ? $value->getObjectUrl() : $value->getName();
         } else {
-            $path = null;
+            try {
+                $path = $object->getFileUploadPaths()[$column];
+                $value = $path.$values[$column];
+                $value = new fFlysystemFile($value);
+                $path = ($translate_to_web_path) ? $value->getObjectUrl() : $value->getName();
+            } catch (fValidationException $e) {
+                $path = null;
+            }
         }
 
         return fHTML::prepare($path);
@@ -875,7 +883,7 @@ class fORMFile
      */
     public static function replicate($class, $column, $value)
     {
-        if (! $value instanceof fFile) {
+        if (! $value instanceof fFlysystemFile) {
             return $value;
         }
 
@@ -931,7 +939,7 @@ class fORMFile
         self::$transaction_level--;
 
         if (! self::$transaction_level) {
-            fFilesystem::rollback();
+            fFlysystem::rollback();
         }
     }
 
@@ -979,40 +987,41 @@ class fORMFile
             $file_path = (string) $file_path;
         }
 
-        if ($file_path !== null && $file_path !== '' && $file_path !== false) {
-            if (! $file_path || (! file_exists($file_path) && ! file_exists($doc_root.$file_path))) {
-                throw new fEnvironmentException(
-                    'The file specified, %s, does not exist. This may indicate a missing enctype="multipart/form-data" attribute in form tag.',
-                    $file_path
-                );
-            }
-
-            if (! file_exists($file_path) && file_exists($doc_root.$file_path)) {
-                $file_path = $doc_root.$file_path;
-            }
-
-            if (is_dir($file_path)) {
-                throw new fProgrammerException(
-                    'The file specified, %s, is not a file but a directory',
-                    $file_path
-                );
-            }
-
-            $upload_dir = self::$file_upload_columns[$class][$column];
-
-            try {
-                $temp_dir = new fDirectory($upload_dir->getPath().self::TEMP_DIRECTORY.DIRECTORY_SEPARATOR);
-            } catch (fValidationException $e) {
-                $temp_dir = fDirectory::create($upload_dir->getPath().self::TEMP_DIRECTORY.DIRECTORY_SEPARATOR);
-            }
-
-            $file = fFilesystem::createObject($file_path);
-            $new_file = $file->duplicate($temp_dir);
-        } else {
-            $new_file = null;
-        }
-
-        fActiveRecord::assign($values, $old_values, $column, $new_file);
+        // if ($file_path !== NULL && $file_path !== '' && $file_path !== FALSE) {
+        //  if (!$file_path || (!file_exists($file_path) && !file_exists($doc_root . $file_path))) {
+        //      throw new fEnvironmentException(
+        //          'The file specified, %s, does not exist. This may indicate a missing enctype="multipart/form-data" attribute in form tag.',
+        //          $file_path
+        //      );
+        //  }
+        //
+        //  if (!file_exists($file_path) && file_exists($doc_root . $file_path)) {
+        //      $file_path = $doc_root . $file_path;
+        //  }
+        //
+        //  if (is_dir($file_path)) {
+        //      throw new fProgrammerException(
+        //          'The file specified, %s, is not a file but a directory',
+        //          $file_path
+        //      );
+        //  }
+        //
+        //  $upload_dir = self::$file_upload_columns[$class][$column];
+        //
+        //  try {
+        //      $temp_dir = new fDirectory($upload_dir->getPath() . self::TEMP_DIRECTORY . DIRECTORY_SEPARATOR);
+        //  } catch (fValidationException $e) {
+        //      $temp_dir = fDirectory::create($upload_dir->getPath() . self::TEMP_DIRECTORY . DIRECTORY_SEPARATOR);
+        //  }
+        //
+        //  $file     = fFilesystem::createObject($file_path);
+        //  $new_file = $file->duplicate($temp_dir);
+        //
+        // } else {
+        //  $new_file = NULL;
+        // }
+        $new_file = null;
+        fActiveRecord::assign($values, $old_values, $column, $file_path);
 
         // Perform column inheritance
         if (! empty(self::$column_inheritence[$class][$column])) {
@@ -1055,15 +1064,26 @@ class fORMFile
         // Try to upload the file putting it in the temp dir incase there is a validation problem with the record
         try {
             $upload_dir = self::$file_upload_columns[$class][$column];
-            $temp_dir = self::prepareTempDir($upload_dir);
+            $temp_dir = self::prepareTempDir(
+                $upload_dir
+            );
 
             if (! fUpload::check($column)) {
                 throw new fExpectedException('Please upload a file');
             }
 
             $uploader = self::setUpFUpload($class, $column);
-            $file = $uploader->move($temp_dir, $column);
 
+            $temp_file = $uploader->move($temp_dir, $column);
+
+            $file_name = fFlysystem::makeUniqueName($upload_dir.$temp_file->getName());
+
+            $file = fFlysystemFile::create(
+                $file_name,
+                fopen($temp_file->getPath(), 'r')
+            );
+
+            $temp_file->delete();
             // If there was an eror, check to see if we have an existing file
         } catch (fExpectedException $e) {
             // If there is an existing file and none was uploaded, substitute the existing file
@@ -1075,12 +1095,12 @@ class fORMFile
                 $file = null;
             } elseif ($existing_file) {
                 $file_path = $upload_dir->getPath().$existing_file;
-                $file = fFilesystem::createObject($file_path);
+                $file = fFlysystem::createObject($file_path);
 
                 $current_file = $values[$column];
 
                 // If the existing file is the same as the current file, we can just exit now
-                if ($current_file && $file->getPath() == $current_file->getPath()) {
+                if ($current_file && $file->getPath() == $current_file) {
                     return;
                 }
 
@@ -1201,11 +1221,13 @@ class fORMFile
      */
     private static function prepareTempDir($folder)
     {
+        $folder = static::getTempDir()->getPath().$folder.self::TEMP_DIRECTORY.DIRECTORY_SEPARATOR;
+
         // Let's clean out the upload temp dir
         try {
-            $temp_dir = new fDirectory($folder->getPath().self::TEMP_DIRECTORY.DIRECTORY_SEPARATOR);
+            $temp_dir = new fDirectory($folder);
         } catch (fValidationException $e) {
-            $temp_dir = fDirectory::create($folder->getPath().self::TEMP_DIRECTORY.DIRECTORY_SEPARATOR);
+            $temp_dir = fDirectory::create($folder);
         }
 
         $temp_files = $temp_dir->scan();

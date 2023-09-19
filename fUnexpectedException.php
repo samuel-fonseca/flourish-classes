@@ -1,36 +1,35 @@
 <?php
 /**
- * An exception that should probably not be handled by the display code, fCore::enableExceptionHandler() is recommended
+ * An exception that should probably not be handled by the display code, fCore::enableExceptionHandler() is recommended.
  *
- * @copyright  Copyright (c) 2007-2011 Will Bond
+ * @copyright  Copyright (c) 2007-2008 Will Bond
  * @author     Will Bond [wb] <will@flourishlib.com>
  * @license    http://flourishlib.com/license
  *
- * @package    Flourish
- * @link       http://flourishlib.com/fUnexpectedException
+ * @see       http://flourishlib.com/fUnexpectedException
  *
+ * @version    1.0.0b
+ * @changes    1.0.0b  The initial implementation [wb, 2007-06-14]
  */
 class fUnexpectedException extends fException
 {
-	/**
-	 * Prints out a generic error message inside of a `div` with the class being `'exception {exception_class_name}'`
-	 *
-	 * @return void
-	 */
-	public function printMessage()
-	{
-		echo '<div class="exception ' . $this->getCSSClass() . '"><p>';
-		echo self::compose(
-			'It appears an error has occurred - we apologize for the inconvenience. The problem may be resolved if you try again.'
-		);
-		echo '</p></div>';
-	}
+    /**
+     * Prints out a generic error message inside of a `div` with the class being `'exception {exception_class_name}'`.
+     *
+     * @return void
+     */
+    public function printMessage()
+    {
+        echo '<div class="exception '.$this->getCSSClass().'"><p>';
+        echo self::compose(
+            'It appears an error has occured — we apologize for the inconvenience. The problem may be resolved if you try again.'
+        );
+        echo '</p></div>';
+    }
 }
 
-
-
-/**
- * Copyright (c) 2007-2011 Will Bond <will@flourishlib.com>
+/*
+ * Copyright (c) 2007-2008 Will Bond <will@flourishlib.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal

@@ -1,80 +1,61 @@
 <?php
+
+use Imarc\VAL\Traits\Flourish\hasFlysystem;
+use League\Flysystem\Filesystem;
+
 /**
  * Handles filesystem-level tasks including filesystem transactions and the reference map to keep all fFile and fDirectory objects in sync.
- *
- * @copyright  Copyright (c) 2008-2010 Will Bond, others
- * @author     Will Bond [wb] <will@flourishlib.com>
- * @author     Alex Leeds [al] <alex@kingleeds.com>
- * @author     Will Bond, iMarc LLC [wb-imarc] <will@imarc.net>
- * @license    http://flourishlib.com/license
- *
- * @see       http://flourishlib.com/fFilesystem
- *
- * @version    1.0.0b15
- * @changes    1.0.0b15  Fixed ::translateToWebPath() to handle Windows \s [wb, 2010-04-09]
- * @changes    1.0.0b14  Added ::recordAppend() [wb, 2010-03-15]
- * @changes    1.0.0b13  Changed the way files/directories deleted in a filesystem transaction are handled, including improvements to the exception that is thrown [wb+wb-imarc, 2010-03-05]
- * @changes    1.0.0b12  Updated ::convertToBytes() to properly handle integers without a suffix and sizes with fractions [al+wb, 2009-11-14]
- * @changes    1.0.0b11  Corrected the API documentation for ::getPathInfo() [wb, 2009-09-09]
- * @changes    1.0.0b10  Updated ::updateExceptionMap() to not contain the Exception class parameter hint, allowing NULL to be passed [wb, 2009-08-20]
- * @changes    1.0.0b9   Added some performance tweaks to ::createObject() [wb, 2009-08-06]
- * @changes    1.0.0b8   Changed ::formatFilesize() to not use decimal places for bytes, add a space before and drop the `B` in suffixes [wb, 2009-07-12]
- * @changes    1.0.0b7   Fixed ::formatFilesize() to work when `$bytes` equals zero [wb, 2009-07-08]
- * @changes    1.0.0b6   Changed replacement values in preg_replace() calls to be properly escaped [wb, 2009-06-11]
- * @changes    1.0.0b5   Changed ::formatFilesize() to use proper uppercase letters instead of lowercase [wb, 2009-06-02]
- * @changes    1.0.0b4   Added the ::createObject() method [wb, 2009-01-21]
- * @changes    1.0.0b3   Removed some unnecessary error suppresion operators [wb, 2008-12-11]
- * @changes    1.0.0b2   Fixed a bug where the filepath and exception maps weren't being updated after a rollback [wb, 2008-12-11]
- * @changes    1.0.0b    The initial implementation [wb, 2008-03-24]
  */
-class fFilesystem
+class fFlysystem extends fFilesystem
 {
+    use hasFlysystem;
+
     // The following constants allow for nice looking callbacks to static methods
-    public const addWebPathTranslation = 'fFilesystem::addWebPathTranslation';
+    public const addWebPathTranslation = 'fFlysystem::addWebPathTranslation';
 
-    public const begin = 'fFilesystem::begin';
+    public const begin = 'fFlysystem::begin';
 
-    public const commit = 'fFilesystem::commit';
+    public const commit = 'fFlysystem::commit';
 
-    public const convertToBytes = 'fFilesystem::convertToBytes';
+    public const convertToBytes = 'fFlysystem::convertToBytes';
 
-    public const createObject = 'fFilesystem::createObject';
+    public const createObject = 'fFlysystem::createObject';
 
-    public const formatFilesize = 'fFilesystem::formatFilesize';
+    public const formatFilesize = 'fFlysystem::formatFilesize';
 
-    public const getPathInfo = 'fFilesystem::getPathInfo';
+    public const getPathInfo = 'fFlysystem::getPathInfo';
 
-    public const hookDeletedMap = 'fFilesystem::hookDeletedMap';
+    public const hookDeletedMap = 'fFlysystem::hookDeletedMap';
 
-    public const hookFilenameMap = 'fFilesystem::hookFilenameMap';
+    public const hookFilenameMap = 'fFlysystem::hookFilenameMap';
 
-    public const isInsideTransaction = 'fFilesystem::isInsideTransaction';
+    public const isInsideTransaction = 'fFlysystem::isInsideTransaction';
 
-    public const makeUniqueName = 'fFilesystem::makeUniqueName';
+    public const makeUniqueName = 'fFlysystem::makeUniqueName';
 
-    public const recordAppend = 'fFilesystem::recordAppend';
+    public const recordAppend = 'fFlysystem::recordAppend';
 
-    public const recordCreate = 'fFilesystem::recordCreate';
+    public const recordCreate = 'fFlysystem::recordCreate';
 
-    public const recordDelete = 'fFilesystem::recordDelete';
+    public const recordDelete = 'fFlysystem::recordDelete';
 
-    public const recordDuplicate = 'fFilesystem::recordDuplicate';
+    public const recordDuplicate = 'fFlysystem::recordDuplicate';
 
-    public const recordRename = 'fFilesystem::recordRename';
+    public const recordRename = 'fFlysystem::recordRename';
 
-    public const recordWrite = 'fFilesystem::recordWrite';
+    public const recordWrite = 'fFlysystem::recordWrite';
 
-    public const reset = 'fFilesystem::reset';
+    public const reset = 'fFlysystem::reset';
 
-    public const rollback = 'fFilesystem::rollback';
+    public const rollback = 'fFlysystem::rollback';
 
-    public const translateToWebPath = 'fFilesystem::translateToWebPath';
+    public const translateToWebPath = 'fFlysystem::translateToWebPath';
 
-    public const updateDeletedMap = 'fFilesystem::updateDeletedMap';
+    public const updateDeletedMap = 'fFlysystem::updateDeletedMap';
 
-    public const updateFilenameMap = 'fFilesystem::updateFilenameMap';
+    public const updateFilenameMap = 'fFlysystem::updateFilenameMap';
 
-    public const updateFilenameMapForDirectory = 'fFilesystem::updateFilenameMapForDirectory';
+    public const updateFilenameMapForDirectory = 'fFlysystem::updateFilenameMapForDirectory';
 
     /**
      * Stores the operations to perform when a commit occurs.
@@ -121,24 +102,21 @@ class fFilesystem
     }
 
     /**
-     * Adds a directory to the web path translation list.
+     * sets flysystem on self, fFlysystemDirectory, fFlysystemFile and fFlysystemImage.
      *
-     * The web path conversion list is a list of directory paths that will be
-     * converted (from the beginning of filesystem paths) when preparing a path
-     * for output into HTML.
-     *
-     * By default the `$_SERVER['DOCUMENT_ROOT']` will be converted to a blank
-     * string, in essence stripping it from filesystem paths.
-     *
-     * @param string $search_path  The path to look for
-     * @param string $replace_path The path to replace with
+     * @param Filesystem $flysystem filesystem instance
+     * @param string     $temp_dir  Directory to store temporary files in
      */
-    public static function addWebPathTranslation($search_path, $replace_path): void
+    public static function init(Filesystem $flysystem, $temp_dir): void
     {
-        // Ensure we have the correct kind of slash for the OS being used
-        $search_path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $search_path);
-        $replace_path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $replace_path);
-        self::$web_path_translations[$search_path] = $replace_path;
+        static::setFlysystem($flysystem);
+        fFlysystemDirectory::setFlysystem($flysystem);
+        fFlysystemFile::setFlysystem($flysystem);
+        fFlysystemImage::setFlysystem($flysystem);
+
+        fFlysystemFile::setTempDir($temp_dir);
+        fFlysystemImage::setTempDir($temp_dir);
+        fORMFlysystemFile::setTempDir($temp_dir);
     }
 
     /**
@@ -160,6 +138,7 @@ class fFilesystem
                 'There is already a filesystem transaction in progress'
             );
         }
+
         self::$commit_operations = [];
         self::$rollback_operations = [];
     }
@@ -184,10 +163,12 @@ class fFilesystem
 
         $commit_operations = array_reverse($commit_operations);
 
+        $flysystem = static::getFlysystem();
+
         foreach ($commit_operations as $operation) {
             // Commit operations only include deletes, however it could be a filename or object
             if (isset($operation['filename'])) {
-                unlink($operation['filename']);
+                $flysystem->delete($operation['filename']);
             } else {
                 $operation['object']->delete();
             }
@@ -229,36 +210,38 @@ class fFilesystem
     /**
      * Takes a filesystem path and creates either an fDirectory, fFile or fImage object from it.
      *
-     * @param string $path The path to the filesystem object
+     * @param string $content The path to the filesystem object
      *
      * @throws fValidationException When no path was specified or the path specified does not exist
      *
-     * @return fDirectory|fFile|fImage
+     * @return fFlysystemDirectory|fFlysystemFile
      */
-    public static function createObject($path)
+    public static function createObject($content): fFlysystemFile|fFlysystemDirectory
     {
-        if (empty($path)) {
-            throw new fValidationException(
-                'No path was specified'
-            );
+        if (is_array($content)) {
+            $type = $content['type'] ?? false;
+            $path = $content['path'] ?? false;
+        } else {
+            $path = $content;
+            $type = false;
         }
 
-        if (! is_readable($path)) {
+        if (! $path) {
             throw new fValidationException(
                 'The path specified, %s, does not exist or is not readable',
                 $path
             );
         }
 
-        if (is_dir($path)) {
-            return new fDirectory($path, true);
+        if ($type === 'dir') {
+            return new fFlysystemDirectory($path);
         }
 
-        if (fImage::isImageCompatible($path)) {
-            return new fImage($path, true);
+        if (fFlysystemImage::isImageCompatible($path)) {
+            return new fFlysystemImage($path, true);
         }
 
-        return new fFile($path, true);
+        return new fFlysystemFile($path, true);
     }
 
     /**
@@ -411,7 +394,7 @@ class fFilesystem
         $file = preg_replace('#_copy(\d+)'.preg_quote($extension, '#').'$#D', $extension, $file);
 
         // Look for a unique name by adding _copy# to the end of the file
-        while (file_exists($file)) {
+        while (static::getFlysystem()->has($file)) {
             $info = self::getPathInfo($file);
             if (preg_match('#_copy(\d+)'.preg_quote($extension, '#').'$#D', $file, $match)) {
                 $file = preg_replace('#_copy(\d+)'.preg_quote($extension, '#').'$#D', '_copy'.($match[1] + 1).$extension, $file);
@@ -651,12 +634,12 @@ class fFilesystem
         }
 
         self::$rollback_operations = array_reverse(self::$rollback_operations);
-
         foreach (self::$rollback_operations as $operation) {
             switch ($operation['action']) {
                 case 'append':
-                    $current_length = filesize($operation['filename']);
-                    $handle = fopen($operation['filename'], 'r+');
+                    $meta = static::getFlysystem()->getMetadata($operation['filename']);
+                    $current_length = $meta['size'];
+                    $handle = static::getFlysystem()->readStream($operation['filename']);
                     ftruncate($handle, $current_length - $operation['length']);
                     fclose($handle);
 
@@ -664,32 +647,39 @@ class fFilesystem
 
                 case 'delete':
                     self::updateDeletedMap(
-                        $operation['filename'],
+                        $operation['object']->getPath(),
                         debug_backtrace()
                     );
-                    unlink($operation['filename']);
-                    self::updateFilenameMap($operation['filename'], '*DELETED at '.time().' with token '.uniqid('', true).'* '.$operation['filename']);
+
+                    static::getFlysystem()->delete($operation['object']->getPath());
+
+                    self::updateFilenameMap(
+                        $operation['object']->getPath(),
+                        '*DELETED at '.time().' with token '.uniqid('', true).'* '.$operation['object']->getPath()
+                    );
 
                     break;
 
                 case 'write':
-                    file_put_contents($operation['filename'], $operation['old_data']);
+                    static::getFlysystem()->put($operation['filename'], $operation['old_data']);
 
                     break;
 
                 case 'rename':
                     self::updateFilenameMap($operation['new_name'], $operation['old_name']);
-                    rename($operation['new_name'], $operation['old_name']);
+                    static::getFlysystem()->rename($operation['new_name'], $operation['old_name']);
 
                     break;
             }
         }
 
         // All files to be deleted should have their backtraces erased
-        foreach (self::$commit_operations as $operation) {
-            if (isset($operation['object'])) {
-                self::updateDeletedMap($operation['object']->getPath(), null);
-                self::updateFilenameMap($operation['object']->getPath(), preg_replace('#*DELETED at \d+ with token [\w.]+* #', '', $operation['filename']));
+        if (self::$commit_operations) {
+            foreach (self::$commit_operations as $operation) {
+                if (isset($operation['object'])) {
+                    self::updateDeletedMap($operation['object']->getPath(), null);
+                    self::updateFilenameMap($operation['object']->getPath(), preg_replace('#*DELETED at \d+ with token [\w.]+* #', '', $operation['object']->getPath()));
+                }
             }
         }
 
@@ -717,6 +707,11 @@ class fFilesystem
         }
 
         return str_replace('\\', '/', $path);
+    }
+
+    public static function getFilenameMap(): array
+    {
+        return static::$filename_map;
     }
 }
 

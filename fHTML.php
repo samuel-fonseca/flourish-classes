@@ -1,286 +1,321 @@
 <?php
 /**
- * Provides HTML-related methods
+ * Provides HTML-related methods.
  *
  * This class is implemented to use the UTF-8 character encoding. Please see
  * http://flourishlib.com/docs/UTF-8 for more information.
  *
  * @copyright  Copyright (c) 2007-2010 Will Bond
  * @author     Will Bond [wb] <will@flourishlib.com>
- * @author     Jeff Turcotte [jt] <jeff@imarc.net>
  * @license    http://flourishlib.com/license
  *
- * @package    Flourish
- * @link       http://flourishlib.com/fHTML
+ * @see       http://flourishlib.com/fHTML
  *
+ * @version    1.0.0b8
+ * @changes    1.0.0b8  Changed ::encode() and ::prepare() to handle arrays of strings [wb, 2010-05-19]
+ * @changes    1.0.0b7  Fixed a bug where some conditional comments were causing the regex in ::prepare() to break [wb, 2009-11-04]
+ * @changes    1.0.0b6  Updated ::showChecked() to require strict equality if one parameter is `NULL` [wb, 2009-06-02]
+ * @changes    1.0.0b5  Fixed ::prepare() so it does not encode multi-line HTML comments [wb, 2009-05-09]
+ * @changes    1.0.0b4  Added methods ::printOption() and ::showChecked() that were in fCRUD [wb, 2009-05-08]
+ * @changes    1.0.0b3  Fixed a bug where ::makeLinks() would double-link some URLs [wb, 2009-01-08]
+ * @changes    1.0.0b2  Fixed a bug where ::makeLinks() would create links out of URLs in HTML tags [wb, 2008-12-05]
+ * @changes    1.0.0b   The initial implementation [wb, 2007-09-25]
  */
 class fHTML
 {
-	// The following constants allow for nice looking callbacks to static methods
-	const containsBlockLevelHTML = 'fHTML::containsBlockLevelHTML';
-	const convertNewlines        = 'fHTML::convertNewlines';
-	const decode                 = 'fHTML::decode';
-	const encode                 = 'fHTML::encode';
-	const makeLinks              = 'fHTML::makeLinks';
-	const prepare                = 'fHTML::prepare';
-	const printOption            = 'fHTML::printOption';
-	const sendHeader             = 'fHTML::sendHeader';
-	const show                   = 'fHTML::show';
-	const showChecked            = 'fHTML::showChecked';
+    // The following constants allow for nice looking callbacks to static methods
+    public const containsBlockLevelHTML = 'fHTML::containsBlockLevelHTML';
 
+    public const convertNewlines = 'fHTML::convertNewlines';
 
-	/**
-	 * Checks a string of HTML for block level elements
-	 *
-	 * @param  string $content  The HTML content to check
-	 * @return boolean  If the content contains a block level tag
-	 */
-	static public function containsBlockLevelHTML($content)
-	{
-		static $inline_tags = '<a><abbr><acronym><b><big><br><button><cite><code><del><dfn><em><font><i><img><input><ins><kbd><label><q><s><samp><select><small><span><strike><strong><sub><sup><textarea><tt><u><var>';
-		return strip_tags($content, $inline_tags) != $content;
-	}
+    public const decode = 'fHTML::decode';
 
+    public const encode = 'fHTML::encode';
 
-	/**
-	 * Converts newlines into `br` tags as long as there aren't any block-level HTML tags present
-	 *
-	 * @param  string $content  The content to display
-	 * @return void
-	 */
-	static public function convertNewlines($content)
-	{
-		static $inline_tags_minus_br = '<a><abbr><acronym><b><big><button><cite><code><del><dfn><em><font><i><img><input><ins><kbd><label><q><s><samp><select><small><span><strike><strong><sub><sup><textarea><tt><u><var>';
-		return (strip_tags($content, $inline_tags_minus_br) != $content) ? $content : nl2br($content);
-	}
+    public const makeLinks = 'fHTML::makeLinks';
 
+    public const prepare = 'fHTML::prepare';
 
-	/**
-	 * Converts all HTML entities to normal characters, using UTF-8
-	 *
-	 * @param  string $content  The content to decode
-	 * @return string  The decoded content
-	 */
-	static public function decode($content)
-	{
-		return html_entity_decode($content, ENT_QUOTES, 'UTF-8');
-	}
+    public const printOption = 'fHTML::printOption';
 
+    public const sendHeader = 'fHTML::sendHeader';
 
-	/**
-	 * Converts all special characters to entites, using UTF-8.
-	 *
-	 * @param  string|array $content  The content to encode
-	 * @return string  The encoded content
-	 */
-	static public function encode($content)
-	{
-		if (is_array($content)) {
-			return array_map(array('fHTML', 'encode'), $content);
-		}
-		return htmlentities($content, ENT_QUOTES, 'UTF-8');
-	}
+    public const show = 'fHTML::show';
 
+    public const showChecked = 'fHTML::showChecked';
 
-	/**
-	 * Takes a block of text and converts all URLs into HTML links
-	 *
-	 * @param  string  $content           The content to parse for links
-	 * @param  integer $link_text_length  If non-zero, all link text will be truncated to this many characters
-	 * @return string  The content with all URLs converted to HTML link
-	 */
-	static public function makeLinks($content, $link_text_length=0)
-	{
-		// Find all a tags with contents, individual HTML tags and HTML comments
-		$reg_exp = "/<\s*a(?:\s+[\w:]+(?:\s*=\s*(?:\"[^\"]*?\"|'[^']*?'|[^'\">\s]+))?)*\s*>.*?<\s*\/\s*a\s*>|<\s*\/?\s*[\w:]+(?:\s+[\w:]+(?:\s*=\s*(?:\"[^\"]*?\"|'[^']*?'|[^'\">\s]+))?)*\s*\/?\s*>|<\!--.*?-->/s";
-		preg_match_all($reg_exp, $content, $html_matches, PREG_SET_ORDER);
+    /**
+     * Forces use as a static class.
+     *
+     * @return fHTML
+     */
+    private function __construct()
+    {
+    }
 
-		// Find all text
-		$text_matches = preg_split($reg_exp, $content);
+    /**
+     * Checks a string of HTML for block level elements.
+     *
+     * @param string $content The HTML content to check
+     *
+     * @return bool If the content contains a block level tag
+     */
+    public static function containsBlockLevelHTML($content)
+    {
+        static $inline_tags = '<a><abbr><acronym><b><big><br><button><cite><code><del><dfn><em><font><i><img><input><ins><kbd><label><q><s><samp><select><small><span><strike><strong><sub><sup><textarea><tt><u><var>';
 
-		// For each chunk of text and create the links
-		foreach($text_matches as $key => $text) {
-			preg_match_all(
-				'~
-				  \b([a-z]{3,}://[a-z0-9%\$\-_.+!*;/?:@=&\'\#,]+[a-z0-9\$\-_+!*;/?:@=&\'\#,])\b                           | # Fully URLs
-				  \b(www\.(?:[a-z0-9\-]+\.)+[a-z]{2,}(?:/[a-z0-9%\$\-_.+!*;/?:@=&\'\#,]+[a-z0-9\$\-_+!*;/?:@=&\'\#,])?)\b | # www. domains
-				  \b([a-z0-9\\.+\'_\\-]+@(?:[a-z0-9\\-]+\.)+[a-z]{2,})\b                                                    # email addresses
-				 ~ix',
-				$text,
-				$matches,
-				PREG_SET_ORDER
-			);
+        return strip_tags($content, $inline_tags) != $content;
+    }
 
-			// For each match we find the first occurence, replace it and then
-			// start from the end of that finding the next occurence. This
-			// prevents double linking of matches for http://www.example.com and
-			// www.example.com
-			$last_pos = 0;
-			foreach ($matches as $match) {
-				$match_pos = strpos($text, $match[0], $last_pos);
-				$length    = strlen($match[0]);
-				$prefix    = '';
+    /**
+     * Converts newlines into `br` tags as long as there aren't any block-level HTML tags present.
+     *
+     * @param string $content The content to display
+     *
+     * @return string
+     */
+    public static function convertNewlines($content)
+    {
+        static $inline_tags_minus_br = '<a><abbr><acronym><b><big><button><cite><code><del><dfn><em><font><i><img><input><ins><kbd><label><q><s><samp><select><small><span><strike><strong><sub><sup><textarea><tt><u><var>';
 
-				if (!empty($match[3])) {
-					$prefix = 'mailto:';
-				} elseif (!empty($match[2])) {
-					$prefix = 'http://';
-				}
+        return (strip_tags($content, $inline_tags_minus_br) != $content) ? $content : nl2br($content);
+    }
 
-				$replacement  = '<a href="' . $prefix . $match[0] . '">';
-				$replacement .= ($link_text_length && strlen($match[0]) > $link_text_length) ? substr($match[0], 0, $link_text_length) . "…" : $match[0];
-				$replacement .= '</a>';
+    /**
+     * Converts all HTML entities to normal characters, using UTF-8.
+     *
+     * @param string $content The content to decode
+     *
+     * @return string The decoded content
+     */
+    public static function decode($content)
+    {
+        return html_entity_decode($content, ENT_QUOTES, 'UTF-8');
+    }
 
-				$text = substr_replace(
-					$text,
-					$replacement,
-					$match_pos,
-					$length
-				);
+    /**
+     * Converts all special characters to entites, using UTF-8.
+     *
+     * @param array|string $content The content to encode
+     *
+     * @return null|string|string[] The encoded content
+     *
+     * @psalm-return array<string>|null|string
+     */
+    public static function encode($content)
+    {
+        if (! $content) {
+            return;
+        }
 
-				$last_pos = $match_pos + strlen($replacement);
-			}
+        if (is_array($content)) {
+            return array_map(['fHTML', 'encode'], $content);
+        }
 
-			$text_matches[$key] = $text;
-		}
+        return htmlentities($content, ENT_QUOTES, 'UTF-8');
+    }
 
-		// Merge the text and html back together
-		for ($i = 0; $i < sizeof($html_matches); $i++) {
-			$text_matches[$i] .= $html_matches[$i][0];
-		}
+    /**
+     * Takes a block of text and converts all URLs into HTML links.
+     *
+     * @param string $content          The content to parse for links
+     * @param int    $link_text_length If non-zero, all link text will be truncated to this many characters
+     *
+     * @return string The content with all URLs converted to HTML link
+     */
+    public static function makeLinks($content, $link_text_length = 0)
+    {
+        // Find all a tags with contents, individual HTML tags and HTML comments
+        $reg_exp = "/<\\s*a(?:\\s+[\\w:]+(?:\\s*=\\s*(?:\"[^\"]*?\"|'[^']*?'|[^'\">\\s]+))?)*\\s*>.*?<\\s*\\/\\s*a\\s*>|<\\s*\\/?\\s*[\\w:]+(?:\\s+[\\w:]+(?:\\s*=\\s*(?:\"[^\"]*?\"|'[^']*?'|[^'\">\\s]+))?)*\\s*\\/?\\s*>|<\\!--.*?-->/s";
+        preg_match_all($reg_exp, $content, $html_matches, PREG_SET_ORDER);
 
-		return implode($text_matches);
-	}
+        // Find all text
+        $text_matches = preg_split($reg_exp, $content);
 
+        // For each chunk of text and create the links
+        foreach ($text_matches as $key => $text) {
+            preg_match_all(
+                '~
+                  \b([a-z]{3,}://[a-z0-9%\$\-_.+!*;/?:@=&\'\#,]+[a-z0-9\$\-_+!*;/?:@=&\'\#,])\b                           | # Fully URLs
+                  \b(www\.(?:[a-z0-9\-]+\.)+[a-z]{2,}(?:/[a-z0-9%\$\-_.+!*;/?:@=&\'\#,]+[a-z0-9\$\-_+!*;/?:@=&\'\#,])?)\b | # www. domains
+                  \b([a-z0-9\\.+\'_\\-]+@(?:[a-z0-9\\-]+\.)+[a-z]{2,})\b                                                    # email addresses
+                 ~ix',
+                $text,
+                $matches,
+                PREG_SET_ORDER
+            );
 
-	/**
-	 * Prepares content for display in UTF-8 encoded HTML - allows HTML tags
-	 *
-	 * @param  string|array $content  The content to prepare
-	 * @return string  The encoded html
-	 */
-	static public function prepare($content)
-	{
-		if (is_array($content)) {
-			return array_map(array('fHTML', 'prepare'), $content);
-		}
+            // For each match we find the first occurence, replace it and then
+            // start from the end of that finding the next occurence. This
+            // prevents double linking of matches for http://www.example.com and
+            // www.example.com
+            $last_pos = 0;
+            foreach ($matches as $match) {
+                $match_pos = strpos($text, $match[0], $last_pos);
+                $length = strlen($match[0]);
+                $prefix = '';
 
-		// Find all html tags, entities and comments
-		$reg_exp = "/<\s*\/?\s*[\w:]+(?:\s+[\w:]+(?:\s*=\s*(?:\"[^\"]*?\"|'[^']*?'|[^'\">\s]+))?)*\s*\/?\s*>|&(?:#\d+|\w+);|<\!--.*?-->/s";
-		preg_match_all($reg_exp, $content, $html_matches, PREG_SET_ORDER);
+                if (! empty($match[3])) {
+                    $prefix = 'mailto:';
+                } elseif (! empty($match[2])) {
+                    $prefix = 'http://';
+                }
 
-		// Find all text
-		$text_matches = preg_split($reg_exp, $content);
+                $replacement = '<a href="'.$prefix.$match[0].'">';
+                $replacement .= ($link_text_length && strlen($match[0]) > $link_text_length) ? substr($match[0], 0, $link_text_length).'…' : $match[0];
+                $replacement .= '</a>';
 
-		// For each chunk of text, make sure it is converted to entities
-		foreach($text_matches as $key => $value) {
-			$text_matches[$key] = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
-		}
+                $text = substr_replace(
+                    $text,
+                    $replacement,
+                    $match_pos,
+                    $length
+                );
 
-		// Merge the text and html back together
-		for ($i = 0; $i < sizeof($html_matches); $i++) {
-			$text_matches[$i] .= $html_matches[$i][0];
-		}
+                $last_pos = $match_pos + strlen($replacement);
+            }
 
-		return implode($text_matches);
-	}
+            $text_matches[$key] = $text;
+        }
 
+        // Merge the text and html back together
+        for ($i = 0; $i < count($html_matches); $i++) {
+            $text_matches[$i] .= $html_matches[$i][0];
+        }
 
-	/**
-	 * Prints an `option` tag with the provided value, using the selected value to determine if the option should be marked as selected
-	 *
-	 * @param  string $text            The text to display in the option tag
-	 * @param  string $value           The value for the option
-	 * @param  string $selected_value  If the value is the same as this, the option will be marked as selected
-	 * @return void
-	 */
-	static public function printOption($text, $value, $selected_value=NULL)
-	{
-		$selected = FALSE;
-		if ($value == $selected_value || (is_array($selected_value) && in_array($value, $selected_value))) {
-			$selected = TRUE;
-		}
+        return implode($text_matches);
+    }
 
-		echo '<option value="' . fHTML::encode($value) . '"';
-		if ($selected) {
-			echo ' selected="selected"';
-		}
-		echo '>' . fHTML::prepare($text) . '</option>';
-	}
+    /**
+     * Prepares content for display in UTF-8 encoded HTML - allows HTML tags.
+     *
+     * @param array|string $content The content to prepare
+     *
+     * @return string|string[] The encoded html
+     *
+     * @psalm-return array<string>|string
+     */
+    public static function prepare($content): array|string
+    {
+        if ($content === null) {
+            return '';
+        }
 
+        if (is_array($content)) {
+            return array_map(['fHTML', 'prepare'], $content);
+        }
 
-	/**
-	 * Sets the proper Content-Type header for a UTF-8 HTML (or pseudo-XHTML) page
-	 *
-	 * @return void
-	 */
-	static public function sendHeader()
-	{
-		header('Content-Type: text/html; charset=utf-8');
-	}
+        // Find all html tags, entities and comments
+        $reg_exp = "/<\\s*\\/?\\s*[\\w:]+(?:\\s+[\\w:]+(?:\\s*=\\s*(?:\"[^\"]*?\"|'[^']*?'|[^'\">\\s]+))?)*\\s*\\/?\\s*>|&(?:#\\d+|\\w+);|<\\!--.*?-->/s";
+        preg_match_all($reg_exp, $content, $html_matches, PREG_SET_ORDER);
 
+        $text_matches = [];
+        // Find all text
 
-	/**
-	 * Prints a `p` (or `div` if the content has block-level HTML) tag with the contents and the class specified - will not print if no content
-	 *
-	 * @param  string $content    The content to display
-	 * @param  string $css_class  The CSS class to apply
-	 * @param  string $force_div  Force a div for showing html
-	 * @return boolean  If the content was shown
-	 */
-	static public function show($content, $css_class='', $force_div=FALSE)
-	{
-		if ((!is_string($content) && !is_object($content) && !is_numeric($content)) || !strlen(trim($content))) {
-			return FALSE;
-		}
+        $text_matches = preg_split($reg_exp, $content);
 
-		$class = ($css_class) ? ' class="' . $css_class . '"' : '';
-		if (self::containsBlockLevelHTML($content) || $force_div) {
-			echo '<div' . $class . '>' . self::prepare($content) . '</div>';
-		} else {
-			echo '<p' . $class . '>' . self::prepare($content) . '</p>';
-		}
+        // For each chunk of text, make sure it is converted to entities
+        foreach ($text_matches as $key => $value) {
+            $text_matches[$key] = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+        }
 
-		return TRUE;
-	}
+        // Merge the text and html back together
+        for ($i = 0; $i < count($html_matches); $i++) {
+            $text_matches[$i] .= $html_matches[$i][0];
+        }
 
+        return implode($text_matches);
+    }
 
-	/**
-	 * Prints a `checked="checked"` HTML input attribute if `$value` equals `$checked_value`, or if `$value` is in `$checked_value`
-	 *
-	 * Please note that if either `$value` or `$checked_value` is `NULL`, a
-	 * strict comparison will be performed, whereas normally a non-strict
-	 * comparison is made. Thus `0` and `FALSE` will cause the checked
-	 * attribute to be printed, but `0` and `NULL` will not.
-	 *
-	 * @param  string       $value          The value for the current HTML input tag
-	 * @param  string|array $checked_value  The value (or array of values) that has been checked
-	 * @return boolean  If the checked attribute was printed
-	 */
-	static public function showChecked($value, $checked_value)
-	{
-		$checked  = FALSE;
+    /**
+     * Prints an `option` tag with the provided value, using the selected value to determine if the option should be marked as selected.
+     *
+     * @param string $text           The text to display in the option tag
+     * @param string $value          The value for the option
+     * @param string $selected_value If the value is the same as this, the option will be marked as selected
+     */
+    public static function printOption($text, $value, $selected_value = null): void
+    {
+        $selected = false;
+        if ($value == $selected_value || (is_array($selected_value) && in_array($value, $selected_value))) {
+            $selected = true;
+        }
 
-		$one_null = $value === NULL || $checked_value === NULL;
-		$equal    = ($one_null) ? $value === $checked_value : $value == $checked_value;
-		$in_array = is_array($checked_value) && in_array($value, $checked_value, $one_null ? TRUE : FALSE);
+        echo '<option value="'.self::encode($value).'"';
+        if ($selected) {
+            echo ' selected="selected"';
+        }
+        echo '>'.self::prepare($text).'</option>';
+    }
 
-		if ($equal || $in_array) {
-			$checked = TRUE;
-		}
+    /**
+     * Sets the proper Content-Type header for a UTF-8 HTML (or pseudo-XHTML) page.
+     */
+    public static function sendHeader(): void
+    {
+        header('Content-Type: text/html; charset=utf-8');
+    }
 
-		if ($checked) {
-			echo ' checked="checked"';
-			return TRUE;
-		}
+    /**
+     * Prints a `p` (or `div` if the content has block-level HTML) tag with the contents and the class specified - will not print if no content.
+     *
+     * @param string $content   The content to display
+     * @param string $css_class The CSS class to apply
+     *
+     * @return bool If the content was shown
+     */
+    public static function show($content, $css_class = '')
+    {
+        if ((! is_string($content) && ! is_object($content) && ! is_numeric($content)) || ! strlen(trim($content))) {
+            return false;
+        }
 
-		return FALSE;
-	}
+        $class = ($css_class) ? ' class="'.$css_class.'"' : '';
+        if (self::containsBlockLevelHTML($content)) {
+            echo '<div'.$class.'>'.self::prepare($content).'</div>';
+        } else {
+            echo '<p'.$class.'>'.self::prepare($content).'</p>';
+        }
+
+        return true;
+    }
+
+    /**
+     * Prints a `checked="checked"` HTML input attribute if `$value` equals `$checked_value`, or if `$value` is in `$checked_value`.
+     *
+     * Please note that if either `$value` or `$checked_value` is `NULL`, a
+     * strict comparison will be performed, whereas normally a non-strict
+     * comparison is made. Thus `0` and `FALSE` will cause the checked
+     * attribute to be printed, but `0` and `NULL` will not.
+     *
+     * @param string       $value         The value for the current HTML input tag
+     * @param array|string $checked_value The value (or array of values) that has been checked
+     *
+     * @return bool If the checked attribute was printed
+     */
+    public static function showChecked($value, $checked_value)
+    {
+        $checked = false;
+
+        $one_null = $value === null || $checked_value === null;
+        $equal = ($one_null) ? $value === $checked_value : $value == $checked_value;
+        $in_array = is_array($checked_value) && in_array($value, $checked_value, $one_null ? true : false);
+
+        if ($equal || $in_array) {
+            $checked = true;
+        }
+
+        if ($checked) {
+            echo ' checked="checked"';
+
+            return true;
+        }
+
+        return false;
+    }
 }
 
-
-
-/**
+/*
  * Copyright (c) 2007-2010 Will Bond <will@flourishlib.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

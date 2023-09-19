@@ -1,22 +1,21 @@
 <?php
 /**
- * An exception when an fActiveRecord is not found in the database
+ * An exception when an fActiveRecord is not found in the database.
  *
  * @copyright  Copyright (c) 2007-2008 Will Bond
  * @author     Will Bond [wb] <will@flourishlib.com>
  * @license    http://flourishlib.com/license
  *
- * @package    Flourish
- * @link       http://flourishlib.com/fNotFoundException
+ * @see       http://flourishlib.com/fNotFoundException
  *
+ * @version    1.0.0b
+ * @changes    1.0.0b  The initial implementation [wb, 2007-06-14]
  */
 class fNotFoundException extends fExpectedException
 {
 }
 
-
-
-/**
+/*
  * Copyright (c) 2007-2008 Will Bond <will@flourishlib.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

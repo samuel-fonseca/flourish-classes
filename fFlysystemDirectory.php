@@ -1,30 +1,14 @@
 <?php
+
+use Imarc\VAL\Traits\Flourish\hasFlysystem;
+
 /**
  * Represents a directory on the filesystem, also provides static directory-related methods.
- *
- * @copyright  Copyright (c) 2007-2010 Will Bond, others
- * @author     Will Bond [wb] <will@flourishlib.com>
- * @author     Will Bond, iMarc LLC [wb-imarc] <will@imarc.net>
- * @license    http://flourishlib.com/license
- *
- * @see       http://flourishlib.com/fDirectory
- *
- * @version    1.0.0b12
- * @changes    1.0.0b12  Fixed ::scanRecursive() to not add duplicate entries for certain nested directory structures [wb, 2010-08-10]
- * @changes    1.0.0b11  Fixed ::scan() to properly add trailing /s for directories [wb, 2010-03-16]
- * @changes    1.0.0b10  BackwardsCompatibilityBreak - Fixed ::scan() and ::scanRecursive() to strip the current directory's path before matching, added support for glob style matching [wb, 2010-03-05]
- * @changes    1.0.0b9   Changed the way directories deleted in a filesystem transaction are handled, including improvements to the exception that is thrown [wb+wb-imarc, 2010-03-05]
- * @changes    1.0.0b8   Backwards Compatibility Break - renamed ::getFilesize() to ::getSize(), added ::move() [wb, 2009-12-16]
- * @changes    1.0.0b7   Fixed ::__construct() to throw an fValidationException when the directory does not exist [wb, 2009-08-21]
- * @changes    1.0.0b6   Fixed a bug where deleting a directory would prevent any future operations in the same script execution on a file or directory with the same path [wb, 2009-08-20]
- * @changes    1.0.0b5   Added the ability to skip checks in ::__construct() for better performance in conjunction with fFilesystem::createObject() [wb, 2009-08-06]
- * @changes    1.0.0b4   Refactored ::scan() to use the new fFilesystem::createObject() method [wb, 2009-01-21]
- * @changes    1.0.0b3   Added the $regex_filter parameter to ::scan() and ::scanRecursive(), fixed bug in ::scanRecursive() [wb, 2009-01-05]
- * @changes    1.0.0b2   Removed some unnecessary error suppresion operators [wb, 2008-12-11]
- * @changes    1.0.0b    The initial implementation [wb, 2007-12-21]
  */
-class fDirectory
+class fFlysystemDirectory
 {
+    use hasFlysystem;
+
     // The following constants allow for nice looking callbacks to static methods
     public const create = 'fDirectory::create';
 
@@ -53,41 +37,34 @@ class fDirectory
      *
      * @param string $directory   The path to the directory
      * @param bool   $skip_checks If file checks should be skipped, which improves performance, but may cause undefined behavior - only skip these if they are duplicated elsewhere
+     * @param mixed  $create
      *
      * @throws fValidationException When no directory was specified, when the directory does not exist or when the path specified is not a directory
      *
      * @return fDirectory
      */
-    public function __construct($directory, $skip_checks = false)
+    public function __construct($directory, $create = false)
     {
-        if (! $skip_checks) {
-            if (empty($directory)) {
-                throw new fValidationException('No directory was specified');
+        $directory = self::makeCanonical($directory);
+
+        if ($create) {
+            if ($this->exists($directory)) {
+                throw new fValidationException(
+                    'The directory specified, %s, already exists',
+                    $directory
+                );
             }
 
-            if (! is_readable($directory)) {
-                throw new fValidationException(
-                    'The directory specified, %s, does not exist or is not readable',
-                    $directory
-                );
-            }
-            if (! is_dir($directory)) {
-                throw new fValidationException(
-                    'The directory specified, %s, is not a directory',
-                    $directory
-                );
-            }
+            $created = $this->getFlysystem()->createDir($directory);
         }
 
-        $directory = self::makeCanonical(realpath($directory));
-
-        $this->directory = &fFilesystem::hookFilenameMap($directory);
-        $this->deleted = &fFilesystem::hookDeletedMap($directory);
+        $this->directory = &fFlysystem::hookFilenameMap($directory);
+        $this->deleted = &fFlysystem::hookDeletedMap($directory);
 
         // If the directory is listed as deleted and we are not inside a transaction,
         // but we've gotten to here, then the directory exists, so we can wipe the backtrace
-        if ($this->deleted !== null && ! fFilesystem::isInsideTransaction()) {
-            fFilesystem::updateDeletedMap($directory, null);
+        if ($this->deleted !== null && ! fFlysystem::isInsideTransaction()) {
+            fFlysystem::updateDeletedMap($directory, null);
         }
     }
 
@@ -123,43 +100,22 @@ class fDirectory
      *
      * This operation will be reverted by a filesystem transaction being rolled back.
      *
-     * @param string  $directory The path to the new directory
-     * @param numeric $mode      The mode (permissions) to use when creating the directory. This should be an octal number (requires a leading zero). This has no effect on the Windows platform.
+     * @param string $directory The path to the new directory
+     * @param bool   $visible   true = visisble, false = private
      *
      * @throws fValidationException When no directory was specified, or the directory already exists
-     *
-     * @return fDirectory
      */
-    public static function create($directory, $mode = 0o777)
+    public static function create($directory, $visible = true): static
     {
-        if (empty($directory)) {
-            throw new fValidationException('No directory name was specified');
+        $directory = new static($directory, true);
+
+        if (! $visible) {
+            $directory
+                ->getFlysystem()
+                ->setVisibility($directory->getPath(), 'private');
         }
 
-        if (file_exists($directory)) {
-            throw new fValidationException(
-                'The directory specified, %s, already exists',
-                $directory
-            );
-        }
-
-        $parent_directory = fFilesystem::getPathInfo($directory, 'dirname');
-        if (! file_exists($parent_directory)) {
-            self::create($parent_directory, $mode);
-        }
-
-        if (! is_writable($parent_directory)) {
-            throw new fEnvironmentException(
-                'The directory specified, %s, is inside of a directory that is not writable',
-                $directory
-            );
-        }
-
-        mkdir($directory, $mode);
-
-        $directory = new self($directory);
-
-        fFilesystem::recordCreate($directory);
+        fFlysystem::recordCreate($directory);
 
         return $directory;
     }
@@ -173,7 +129,11 @@ class fDirectory
      */
     public static function makeCanonical($directory)
     {
-        if (substr($directory, -1) != '/' && substr($directory, -1) != '\\') {
+        if (substr($directory, 0, 1) === '/') {
+            $directory = substr($directory, 1);
+        }
+
+        if (substr($directory, -1) !== '/' && substr($directory, -1) !== '\\') {
             $directory .= DIRECTORY_SEPARATOR;
         }
 
@@ -201,11 +161,11 @@ class fDirectory
         }
 
         // Allow filesystem transactions
-        if (fFilesystem::isInsideTransaction()) {
-            return fFilesystem::delete($this);
+        if (fFlysystem::isInsideTransaction()) {
+            return fFlysystem::delete($this);
         }
 
-        rmdir($this->directory);
+        $this->getFlysystem()->deleteDir($this->getPath());
 
         fFilesystem::updateDeletedMap($this->directory, debug_backtrace());
         fFilesystem::updateFilenameMapForDirectory($this->directory, '*DELETED at '.time().' with token '.uniqid('', true).'* '.$this->directory);
@@ -218,19 +178,19 @@ class fDirectory
      */
     public function getName(): array|string
     {
-        return fFilesystem::getPathInfo($this->directory, 'basename');
+        return fFlysystem::getPathInfo($this->directory, 'basename');
     }
 
     /**
      * Gets the parent directory.
      *
-     * @return fDirectory The object representing the parent directory
+     * @return self The object representing the parent directory
      */
-    public function getParent()
+    public function getParent(): self
     {
         $this->tossIfDeleted();
 
-        $dirname = fFilesystem::getPathInfo($this->directory, 'dirname');
+        $dirname = fFlysystem::getPathInfo($this->directory, 'dirname');
 
         if ($dirname == $this->directory) {
             throw new fEnvironmentException(
@@ -268,39 +228,47 @@ class fDirectory
      * This method may return incorrect results if files over 2GB exist and the
      * server uses a 32 bit operating system
      *
-     * @param bool $format         If the filesize should be formatted for human readability
-     * @param int  $decimal_places The number of decimal places to format to (if enabled)
+     * @param bool  $format         If the filesize should be formatted for human readability
+     * @param int   $decimal_places The number of decimal places to format to (if enabled)
+     * @param mixed $recursive
      *
      * @return int|string If formatted, a string with filesize in b/kb/mb/gb/tb, otherwise an integer
      */
-    public function getSize($format = false, $decimal_places = 1)
+    public function getSize($format = false, $decimal_places = 1, $recursive = true)
     {
         $this->tossIfDeleted();
 
+        $contents = $this->getFlysystem()
+            ->listFiles($this->getPath(), $recursive);
+
         $size = 0;
 
-        $children = $this->scan();
-        foreach ($children as $child) {
-            $size += $child->getSize();
+        foreach ($contents as $content) {
+            $fileSize = isset($content['size']) ? (int) $content['size'] : 0;
+            $size += $fileSize;
         }
 
-        if (! $format) {
-            return $size;
+        return fFlysystem::formatFilesize($size, $decimal_places);
+    }
+
+    public function exists(string|null $directory = null): bool
+    {
+        if (! $directory) {
+            $directory = $this->getPath();
         }
 
-        return fFilesystem::formatFilesize($size, $decimal_places);
+        return $this->getFlysystem()->has($directory);
     }
 
     /**
-     * Check to see if the current directory is writable.
+     * This should always be true as the Adapter must have write permissions
+     * to storage.
      *
      * @return bool If the directory is writable
      */
     public function isWritable()
     {
-        $this->tossIfDeleted();
-
-        return is_writable($this->directory);
+        return true;
     }
 
     /**
@@ -316,24 +284,50 @@ class fDirectory
      * This operation will be reverted if a filesystem transaction is in
      * progress and is later rolled back.
      *
-     * @param fDirectory|string $new_parent_directory The directory to move this directory into
-     * @param bool              $overwrite            If the current filename already exists in the new directory, `TRUE` will cause the file to be overwritten, `FALSE` will cause the new filename to change
+     * @param fFlysystemDirectory|string $to        The directory to move this directory into
+     * @param bool                       $overwrite If the current filename already exists in the new directory, `true` will cause the file to be overwritten, `false` will cause the new filename to change
      *
      * @throws fValidationException When the new parent directory passed is not a directory, is not readable or is a sub-directory of this directory
-     *
-     * @return fDirectory The directory object, to allow for method chaining
      */
-    public function move($new_parent_directory, $overwrite)
+    public function move($to, $overwrite = false): void
     {
-        if (! $new_parent_directory instanceof self) {
-            $new_parent_directory = new self($new_parent_directory);
+        $this->tossIfDeleted();
+
+        if (! $to instanceof self) {
+            $to = new self($to);
         }
 
-        if (strpos($new_parent_directory->getPath(), $this->getPath()) === 0) {
+        if (strpos($to->getPath(), $this->getPath()) === 0) {
             throw new fValidationException('It is not possible to move a directory into one of its sub-directories');
         }
 
-        return $this->rename($new_parent_directory->getPath().$this->getName(), $overwrite);
+        $contents = $this->getFlysystem()->listFiles($this->getPath(), true);
+        $toPath = $this->makeCanonical($to->getPath());
+        $existingPath = $this->makeCanonical($this->getPath());
+
+        foreach ($contents as $content) {
+            $newPath = str_replace($this->getPath(), $to->getPath(), $content['path']);
+
+            if (fFlysystem::isInsideTransaction()) {
+                fFlysystem::rename($content['path'], $newPath);
+            }
+
+            fFilesystem::updateFilenameMap($content['path'], $newPath);
+
+            if ($overwrite) {
+                $this->getFlysystem()->forceRename($content['path'], $newPath);
+            } else {
+                try {
+                    $this->getFlysystem()->rename($content['path'], $newPath);
+                } catch (League\Flysystem\FileExistsException $e) {
+                    throw new fValidationException($e->getMessage());
+                }
+            }
+        }
+
+        fFlysystem::updateFilenameMapForDirectory($this->getPath(), $to->getPath());
+
+        $this->getFlysystem()->deleteDir($existingPath);
     }
 
     /**
@@ -345,12 +339,10 @@ class fDirectory
      * files/dirs) as existing with the old paths until that point.
      *
      * @param string $new_dirname The new full path to the directory or a new name in the current parent directory
-     * @param bool   $overwrite   If the new dirname already exists, TRUE will cause the file to be overwritten, FALSE will cause the new filename to change
+     * @param bool   $overwrite   If the new dirname already exists, true will cause the file to be overwritten, false will cause the new filename to change
      */
     public function rename($new_dirname, $overwrite): void
     {
-        $this->tossIfDeleted();
-
         if (! $this->getParent()->isWritable()) {
             throw new fEnvironmentException(
                 'The directory, %s, can not be renamed because the directory containing it is not writable',
@@ -383,7 +375,7 @@ class fDirectory
                 $new_dirname = fFilesystem::makeUniqueName($new_dirname);
             }
         } else {
-            $parent_dir = new self($info['dirname']);
+            $parent_dir = new fDirectory($info['dirname']);
             if (! $parent_dir->isWritable()) {
                 throw new fEnvironmentException(
                     'The new directory name specified, %s, is inside of a directory that is not writable',
@@ -392,17 +384,12 @@ class fDirectory
             }
         }
 
-        rename($this->directory, $new_dirname);
-
-        // Make the dirname absolute
-        $new_dirname = self::makeCanonical(realpath($new_dirname));
-
         // Allow filesystem transactions
-        if (fFilesystem::isInsideTransaction()) {
-            fFilesystem::rename($this->directory, $new_dirname);
+        if (fFlysystem::isInsideTransaction()) {
+            fFlysystem::rename($this->directory, $new_dirname);
         }
 
-        fFilesystem::updateFilenameMapForDirectory($this->directory, $new_dirname);
+        fFlysystem::updateFilenameMapForDirectory($this->directory, $new_dirname);
     }
 
     /**
@@ -420,16 +407,16 @@ class fDirectory
      * On all OSes (even Windows), directories will be separated by `/`s when
      * comparing with the `$filter`.
      *
-     * @param string $filter A PCRE or glob pattern to filter files/directories by path - directories can be detected by checking for a trailing / (even on Windows)
+     * @param string $filter    A PCRE or glob pattern to filter files/directories by path - directories can be detected by checking for a trailing / (even on Windows)
+     * @param mixed  $recursive
      *
      * @return array The fFile (or fImage) and fDirectory objects for the files/directories in this directory
      */
-    public function scan($filter = null)
+    public function scan($filter = null, $recursive = false)
     {
         $this->tossIfDeleted();
 
-        $files = array_diff(scandir($this->directory), ['.', '..']);
-        $objects = [];
+        $objects = $this->getFlysystem()->listContents($this->getPath(), $recursive);
 
         if ($filter && ! preg_match('#^([^a-zA-Z0-9\\\\\s]).*\1[imsxeADSUXJu]*$#D', $filter)) {
             $filter = '#^'.strtr(
@@ -441,20 +428,16 @@ class fDirectory
             ).'$#D';
         }
 
-        natcasesort($files);
-
-        foreach ($files as $file) {
-            if ($filter) {
-                $test_path = (is_dir($this->directory.$file)) ? $file.'/' : $file;
-                if (! preg_match($filter, $test_path)) {
-                    continue;
-                }
+        $results = [];
+        foreach ($objects as $object) {
+            if ($filter && ! preg_match($filter, $object['path'])) {
+                continue;
             }
 
-            $objects[] = fFilesystem::createObject($this->directory.$file);
+            $results[] = fFlysystem::createObject($object);
         }
 
-        return $objects;
+        return $results;
     }
 
     /**
@@ -466,41 +449,7 @@ class fDirectory
      */
     public function scanRecursive($filter = null)
     {
-        $this->tossIfDeleted();
-
-        $objects = $this->scan();
-
-        for ($i = 0; $i < count($objects); $i++) {
-            if ($objects[$i] instanceof self) {
-                array_splice($objects, $i + 1, 0, $objects[$i]->scan());
-            }
-        }
-
-        if ($filter) {
-            if (! preg_match('#^([^a-zA-Z0-9\\\\\s*?^$]).*\1[imsxeADSUXJu]*$#D', $filter)) {
-                $filter = '#^'.strtr(
-                    preg_quote($filter, '#'),
-                    [
-                        '\\*' => '.*',
-                        '\\?' => '.',
-                    ]
-                ).'$#D';
-            }
-
-            $new_objects = [];
-            $strip_length = strlen($this->getPath());
-            foreach ($objects as $object) {
-                $test_path = substr($object->getPath(), $strip_length);
-                $test_path = str_replace(DIRECTORY_SEPARATOR, '/', $test_path);
-                if (! preg_match($filter, $test_path)) {
-                    continue;
-                }
-                $new_objects[] = $object;
-            }
-            $objects = $new_objects;
-        }
-
-        return $objects;
+        return $this->scan($filter, true);
     }
 
     /**

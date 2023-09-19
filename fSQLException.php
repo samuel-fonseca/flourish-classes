@@ -1,22 +1,21 @@
 <?php
 /**
- * An exception occurred while executing a SQL statement
+ * An exception occurred while executing a SQL statement.
  *
  * @copyright  Copyright (c) 2007-2008 Will Bond
  * @author     Will Bond [wb] <will@flourishlib.com>
  * @license    http://flourishlib.com/license
  *
- * @package    Flourish
- * @link       http://flourishlib.com/fSQLException
+ * @see       http://flourishlib.com/fSQLException
  *
+ * @version    1.0.0b
+ * @changes    1.0.0b  The initial implementation [wb, 2007-06-14]
  */
 class fSQLException extends fUnexpectedException
 {
 }
 
-
-
-/**
+/*
  * Copyright (c) 2007-2008 Will Bond <will@flourishlib.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

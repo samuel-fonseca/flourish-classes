@@ -1,54 +1,18 @@
 <?php
+
+use Imarc\VAL\Traits\Flourish\hasFlysystem;
+use Imarc\VAL\Traits\Flourish\hasTempDir;
+
 /**
  * Represents a file on the filesystem, also provides static file-related methods.
- *
- * @copyright  Copyright (c) 2007-2010 Will Bond, others
- * @author     Will Bond [wb] <will@flourishlib.com>
- * @author     Will Bond, iMarc LLC [wb-imarc] <will@imarc.net>
- * @license    http://flourishlib.com/license
- *
- * @see       http://flourishlib.com/fFile
- *
- * @version    1.0.0b34
- * @changes    1.0.0b34  Added ::getExtension() [wb, 2010-05-10]
- * @changes    1.0.0b33  Fixed another situation where ::rename() with the same name would cause the file to be deleted [wb, 2010-04-13]
- * @changes    1.0.0b32  Fixed ::rename() to not fail when the new and old filename are the same [wb, 2010-03-16]
- * @changes    1.0.0b31  Added ::append() [wb, 2010-03-15]
- * @changes    1.0.0b30  Changed the way files deleted in a filesystem transaction are handled, including improvements to the exception that is thrown [wb+wb-imarc, 2010-03-05]
- * @changes    1.0.0b29  Fixed a couple of undefined variable errors in ::determineMimeTypeByContents() [wb, 2010-03-03]
- * @changes    1.0.0b28  Added support for some JPEG files created by Photoshop [wb, 2009-12-16]
- * @changes    1.0.0b27  Backwards Compatibility Break - renamed ::getFilename() to ::getName(), ::getFilesize() to ::getSize(), ::getDirectory() to ::getParent(), added ::move() [wb, 2009-12-16]
- * @changes    1.0.0b26  ::getDirectory(), ::getFilename() and ::getPath() now all work even if the file has been deleted [wb, 2009-10-22]
- * @changes    1.0.0b25  Fixed ::__construct() to throw an fValidationException when the file does not exist [wb, 2009-08-21]
- * @changes    1.0.0b24  Fixed a bug where deleting a file would prevent any future operations in the same script execution on a file or directory with the same path [wb, 2009-08-20]
- * @changes    1.0.0b23  Added the ability to skip checks in ::__construct() for better performance in conjunction with fFilesystem::createObject() [wb, 2009-08-06]
- * @changes    1.0.0b22  Fixed ::__toString() to never throw an exception [wb, 2009-08-06]
- * @changes    1.0.0b21  Fixed a bug in ::determineMimeType() [wb, 2009-07-21]
- * @changes    1.0.0b20  Fixed the exception message thrown by ::output() when output buffering is turned on [wb, 2009-06-26]
- * @changes    1.0.0b19  ::rename() will now rename the file in its current directory if the new filename has no directory separator [wb, 2009-05-04]
- * @changes    1.0.0b18  Changed ::__sleep() to not reset the iterator since it can cause side-effects [wb, 2009-05-04]
- * @changes    1.0.0b17  Added ::__sleep() and ::__wakeup() for proper serialization with the filesystem map [wb, 2009-05-03]
- * @changes    1.0.0b16  ::output() now accepts `TRUE` in the second parameter to use the current filename as the attachment filename [wb, 2009-03-23]
- * @changes    1.0.0b15  Added support for mime type detection of MP3s based on the MPEG-2 (as opposed to MPEG-1) standard [wb, 2009-03-23]
- * @changes    1.0.0b14  Fixed a bug with detecting the mime type of some MP3s [wb, 2009-03-22]
- * @changes    1.0.0b13  Fixed a bug with overwriting files via ::rename() on Windows [wb, 2009-03-11]
- * @changes    1.0.0b12  Backwards compatibility break - Changed the second parameter of ::output() from `$ignore_output_buffer` to `$filename` [wb, 2009-03-05]
- * @changes    1.0.0b11  Changed ::__clone() and ::duplicate() to copy file permissions to the new file [wb, 2009-01-05]
- * @changes    1.0.0b10  Fixed ::duplicate() so an exception is not thrown when no parameters are passed [wb, 2009-01-05]
- * @changes    1.0.0b9   Removed the dependency on fBuffer [wb, 2009-01-05]
- * @changes    1.0.0b8   Added the Iterator interface, ::output() and ::getMTime() [wb, 2008-12-17]
- * @changes    1.0.0b7   Removed some unnecessary error suppresion operators [wb, 2008-12-11]
- * @changes    1.0.0b6   Added the ::__clone() method that duplicates the file on the filesystem when cloned [wb, 2008-12-11]
- * @changes    1.0.0b5   Fixed detection of mime type for JPEG files with Exif information [wb, 2008-12-04]
- * @changes    1.0.0b4   Changed the constructor to ensure the path is to a file and not directory [wb, 2008-11-24]
- * @changes    1.0.0b3   Fixed mime type detection of Microsoft Office files [wb, 2008-11-23]
- * @changes    1.0.0b2   Made ::rename() and ::write() return the object for method chaining [wb, 2008-11-22]
- * @changes    1.0.0b    The initial implementation [wb, 2007-06-14]
  */
-class fFile implements Iterator
+class fFlysystemFile extends fFile
 {
+    use hasFlysystem;
+    use hasTempDir;
+
     // The following constants allow for nice looking callbacks to static methods
-    public const create = 'fFile::create';
+    public const create = 'fFlysystemFile::create';
 
     /**
      * A backtrace from when the file was deleted.
@@ -100,20 +64,23 @@ class fFile implements Iterator
      */
     public function __construct($file, $skip_checks = false)
     {
-        if (! $skip_checks) {
-            if (empty($file)) {
-                throw new fValidationException(
-                    'No filename was specified'
-                );
-            }
+        if (! $this->getFlysystem()) {
+            throw new fProgrammerException('Flysystem has not been initialized yet');
+        }
 
-            if (! is_readable($file)) {
+        $flysystem = $this->getFlysystem();
+
+        if (! $skip_checks) {
+            if (! $flysystem->has($file)) {
                 throw new fValidationException(
                     'The file specified, %s, does not exist or is not readable',
                     $file
                 );
             }
-            if (is_dir($file)) {
+
+            $contents = $flysystem->getMetadata($file);
+
+            if ($contents['type'] === 'dir') {
                 throw new fValidationException(
                     'The file specified, %s, is actually a directory',
                     $file
@@ -121,16 +88,13 @@ class fFile implements Iterator
             }
         }
 
-        // Store the file as an absolute path
-        $file = realpath($file);
-
-        $this->file = &fFilesystem::hookFilenameMap($file);
-        $this->deleted = &fFilesystem::hookDeletedMap($file);
+        $this->file = &fFlysystem::hookFilenameMap($file);
+        $this->deleted = &fFlysystem::hookDeletedMap($file);
 
         // If the file is listed as deleted and were not inside a transaction,
         // but we've gotten to here, then the file exists, so we can wipe the backtrace
-        if ($this->deleted !== null && ! fFilesystem::isInsideTransaction()) {
-            fFilesystem::updateDeletedMap($file, null);
+        if ($this->deleted !== null && ! fFlysystem::isInsideTransaction()) {
+            fFlysystem::updateDeletedMap($file, null);
         }
     }
 
@@ -146,25 +110,16 @@ class fFile implements Iterator
         $this->tossIfDeleted();
 
         $directory = $this->getParent();
+        $file = fFlysystem::makeUniqueName($directory->getPath().$this->getName());
 
-        if (! $directory->isWritable()) {
-            throw new fEnvironmentException(
-                'The file count not be cloned because the containing directory, %s, is not writable',
-                $directory
-            );
-        }
+        $this->getFlysystem()->copy($this->getPath(), $file);
 
-        $file = fFilesystem::makeUniqueName($directory->getPath().$this->getName());
-
-        copy($this->getPath(), $file);
-        chmod($file, fileperms($this->getPath()));
-
-        $this->file = &fFilesystem::hookFilenameMap($file);
-        $this->deleted = &fFilesystem::hookDeletedMap($file);
+        $this->file = &fFlysystem::hookFilenameMap($file);
+        $this->deleted = &fFlysystem::hookDeletedMap($file);
 
         // Allow filesystem transactions
-        if (fFilesystem::isInsideTransaction()) {
-            fFilesystem::recordDuplicate($this);
+        if (fFlysystem::isInsideTransaction()) {
+            fFlysystem::recordDuplicate($this);
         }
     }
 
@@ -218,11 +173,11 @@ class fFile implements Iterator
         $file = $this->file;
         $deleted = $this->deleted;
 
-        $this->file = &fFilesystem::hookFilenameMap($file);
-        $this->deleted = &fFilesystem::hookDeletedMap($file);
+        $this->file = &fFlysystem::hookFilenameMap($file);
+        $this->deleted = &fFlysystem::hookDeletedMap($file);
 
         if ($deleted !== null) {
-            fFilesystem::updateDeletedMap($file, $deleted);
+            fFlysystem::updateDeletedMap($file, $deleted);
         }
     }
 
@@ -231,43 +186,39 @@ class fFile implements Iterator
      *
      * This operation will be reverted by a filesystem transaction being rolled back.
      *
-     * @param string $file_path The path to the new file
-     * @param string $contents  The contents to write to the file, must be a non-NULL value to be written
+     * @param string          $path The path to the new file
+     * @param resource|string $file A resource stream or a string to a path to be opened as a resource
      *
      * @throws fValidationException When no file was specified or the file already exists
      *
      * @return fFile
      */
-    public static function create($file_path, $contents)
+    public static function create($path, $file)
     {
-        if (empty($file_path)) {
-            throw new fValidationException(
-                'No filename was specified'
-            );
-        }
+        $flysystem = static::getFlysystem();
 
-        if (file_exists($file_path)) {
+        if ($flysystem->has($path)) {
             throw new fValidationException(
                 'The file specified, %s, already exists',
-                $file_path
+                $path
             );
         }
 
-        $directory = fFilesystem::getPathInfo($file_path, 'dirname');
-        if (! is_writable($directory)) {
-            throw new fEnvironmentException(
-                'The file path specified, %s, is inside of a directory that is not writable',
-                $file_path
-            );
+        if (! is_resource($file)) {
+            $file = fopen($file, 'r');
         }
 
-        file_put_contents($file_path, $contents);
+        $flysystem->writeStream($path, $file);
 
-        $file = new self($file_path);
-
-        if (fFilesystem::isInsideTransaction()) {
-            fFilesystem::recordCreate($file);
+        if (is_resource($file)) {
+            fclose($file);
         }
+
+        $file = new self($path);
+
+        // this used to be wrapped in a check for fFlysystem::isInsideTransaction()
+        // which seemed wrong?
+        fFlysystem::recordCreate($file);
 
         return $file;
     }
@@ -283,33 +234,20 @@ class fFile implements Iterator
      * @param string $file     The file to check the mime type for - must be a valid filesystem path if no `$contents` are provided, otherwise just a filename
      * @param string $contents The first 4096 bytes of the file content - the `$file` parameter only need be a filename if this is provided
      *
-     * @return string The mime type of the file
+     * @return false|string The mime type of the file
      */
-    public static function determineMimeType($file, $contents = null)
+    public static function determineMimeType($file, $contents = null): string|false
     {
-        // If no contents are provided, we must get them
-        if ($contents === null) {
-            if (! file_exists($file)) {
-                throw new fValidationException(
-                    'The file specified, %s, does not exist',
-                    $file
-                );
-            }
+        $flysystem = static::getFlysystem();
 
-            // The first 4k should be enough for content checking
-            $handle = fopen($file, 'r');
-            $contents = fread($handle, 4096);
-            fclose($handle);
+        if (! $flysystem->has($file)) {
+            throw new fValidationException(
+                'The file specified, %s, does not exist',
+                $file
+            );
         }
 
-        $extension = strtolower(fFilesystem::getPathInfo($file, 'extension'));
-
-        // If there are no low ASCII chars and no easily distinguishable tokens, we need to detect by file extension
-        if (! preg_match('#[\x00-\x08\x0B\x0C\x0E-\x1F]|%PDF-|<\?php|\%\!PS-Adobe-3|<\?xml|\{\\\\rtf|<\?=|<html|<\!doctype|<rss|\#\![/a-z0-9]+(python|ruby|perl|php)\b#i', $contents)) {
-            return self::determineMimeTypeByExtension($extension);
-        }
-
-        return self::determineMimeTypeByContents($contents, $extension);
+        return $flysystem->getMimetype($file);
     }
 
     /**
@@ -326,19 +264,24 @@ class fFile implements Iterator
     {
         $this->tossIfDeleted();
 
-        if (! $this->isWritable()) {
+        if (! $this->getFlysystem()->has($this->getPath())) {
             throw new fEnvironmentException(
-                'This file, %s, can not be appended because it is not writable',
+                'This file, %s, can not be appended because it does not exist',
                 $this->file
             );
         }
 
         // Allow filesystem transactions
-        if (fFilesystem::isInsideTransaction()) {
-            fFilesystem::recordAppend($this, $data);
+        if (fFlysystem::isInsideTransaction()) {
+            fFlysystem::recordAppend($this, $data);
         }
 
-        file_put_contents($this->file, $data, FILE_APPEND);
+        $stream = $this->getFlysystem()->readStream($this->getPath());
+
+        fseek($stream, -1);
+        fwrite($stream, $data);
+
+        $this->getFlysystem()->updateStream($this->getPath(), $stream);
 
         return $this;
     }
@@ -380,22 +323,22 @@ class fFile implements Iterator
             return;
         }
 
-        if (! $this->getParent()->isWritable()) {
+        if (! $this->getFlysystem()->has($this->getPath())) {
             throw new fEnvironmentException(
-                'The file, %s, can not be deleted because the directory containing it is not writable',
+                'This file, %s, can not be deleted because it does not exist',
                 $this->file
             );
         }
 
         // Allow filesystem transactions
-        if (fFilesystem::isInsideTransaction()) {
-            return fFilesystem::recordDelete($this);
+        if (fFlysystem::isInsideTransaction()) {
+            return fFlysystem::recordDelete($this);
         }
 
-        unlink($this->file);
+        $this->getFlysystem()->delete($this->getPath());
 
-        fFilesystem::updateDeletedMap($this->file, debug_backtrace());
-        fFilesystem::updateFilenameMap($this->file, '*DELETED at '.time().' with token '.uniqid('', true).'* '.$this->file);
+        fFlysystem::updateDeletedMap($this->file, debug_backtrace());
+        fFlysystem::updateFilenameMap($this->file, '*DELETED at '.time().' with token '.uniqid('', true).'* '.$this->file);
     }
 
     /**
@@ -409,60 +352,46 @@ class fFile implements Iterator
      * This operation will be reverted by a filesystem transaction being rolled
      * back.
      *
-     * @param fDirectory|string $new_directory The directory to duplicate the file into if different than the current directory
-     * @param bool              $overwrite     if a new directory is specified, this indicates if a file with the same name should be overwritten
+     * @param string     $new_directory The directory to duplicate the file into if different than the current directory
+     * @param bool       $overwrite     if a new directory is specified, this indicates if a file with the same name should be overwritten
+     * @param null|mixed $to
      *
      * @return fFile The new fFile object
      */
-    public function duplicate($new_directory = null, $overwrite = null)
+    public function duplicate($to = null, $overwrite = false)
     {
         $this->tossIfDeleted();
 
-        if ($new_directory === null) {
-            $new_directory = $this->getParent();
+        if ($to === null) {
+            $to = $this->getParent();
         }
 
-        if (! is_object($new_directory)) {
-            $new_directory = new fDirectory($new_directory);
+        if (! is_object($to)) {
+            $to = new fFlysystemDirectory($to);
         }
 
-        $new_filename = $new_directory->getPath().$this->getName();
-
-        $check_dir_permissions = false;
-
-        if (file_exists($new_filename)) {
+        $new_filename = $to->getPath().$this->getName();
+        if ($this->exists($new_filename)) {
             if (! $overwrite) {
-                $new_filename = fFilesystem::makeUniqueName($new_filename);
-                $check_dir_permissions = true;
-            } elseif (! is_writable($new_filename)) {
-                throw new fEnvironmentException(
-                    'The new directory specified, %1$s, already contains a file with the name %2$s, but it is not writable',
-                    $new_directory->getPath(),
-                    $this->getName()
-                );
+                $new_filename = fFlysystem::makeUniqueName($new_filename);
             }
+        }
+
+        if ($overwrite) {
+            $this->getFlysystem()->putStream(
+                $new_filename,
+                $this->getFlysystem()->readStream($this->getPath())
+            );
         } else {
-            $check_dir_permissions = true;
+            $this->getFlysystem()->copy($this->getPath(), $new_filename);
         }
-
-        if ($check_dir_permissions) {
-            if (! $new_directory->isWritable()) {
-                throw new fEnvironmentException(
-                    'The new directory specified, %s, is not writable',
-                    $new_directory
-                );
-            }
-        }
-
-        copy($this->getPath(), $new_filename);
-        chmod($new_filename, fileperms($this->getPath()));
 
         $class = get_class($this);
         $file = new $class($new_filename);
 
         // Allow filesystem transactions
-        if (fFilesystem::isInsideTransaction()) {
-            fFilesystem::recordDuplicate($file);
+        if (fFlysystem::isInsideTransaction()) {
+            fFlysystem::recordDuplicate($file);
         }
 
         return $file;
@@ -475,7 +404,7 @@ class fFile implements Iterator
      */
     public function getExtension(): array|string
     {
-        return fFilesystem::getPathInfo($this->file, 'extension');
+        return fFlysystem::getPathInfo($this->file, 'extension');
     }
 
     /**
@@ -586,24 +515,24 @@ class fFile implements Iterator
     public function getName(): array|string
     {
         // For some reason PHP calls the filename the basename, where filename is the filename minus the extension
-        return fFilesystem::getPathInfo($this->file, 'basename');
+        return fFlysystem::getPathInfo($this->file, 'basename');
     }
 
     /**
      * Gets the directory the file is located in.
      *
-     * @return fDirectory The directory containing the file
+     * @return fFlysystemDirectory The directory containing the file
      */
     public function getParent()
     {
-        return new fDirectory(fFilesystem::getPathInfo($this->file, 'dirname'));
+        return new fFlysystemDirectory(fFlysystem::getPathInfo($this->file, 'dirname'));
     }
 
     /**
      * Gets the file's current path (directory and filename).
      *
      * If the web path is requested, uses translations set with
-     * fFilesystem::addWebPathTranslation()
+     * fFlysystem::addWebPathTranslation()
      *
      * @param bool $translate_to_web_path If the path should be the web path
      *
@@ -612,7 +541,7 @@ class fFile implements Iterator
     public function getPath($translate_to_web_path = false)
     {
         if ($translate_to_web_path) {
-            return fFilesystem::translateToWebPath($this->file);
+            return fFlysystem::translateToWebPath($this->file);
         }
 
         return $this->file;
@@ -639,7 +568,7 @@ class fFile implements Iterator
             return $size;
         }
 
-        return fFilesystem::formatFilesize($size, $decimal_places);
+        return fFlysystem::formatFilesize($size, $decimal_places);
     }
 
     /**
@@ -649,9 +578,7 @@ class fFile implements Iterator
      */
     public function isWritable()
     {
-        $this->tossIfDeleted();
-
-        return is_writable($this->file);
+        return true;
     }
 
     /**
@@ -689,8 +616,8 @@ class fFile implements Iterator
      * This operation will be reverted if a filesystem transaction is in
      * progress and is later rolled back.
      *
-     * @param fDirectory|string $new_directory The directory to move this file into
-     * @param bool              $overwrite     If the current filename already exists in the new directory, `TRUE` will cause the file to be overwritten, `FALSE` will cause the new filename to change
+     * @param fFlysystemDirectory|string $new_directory The directory to move this file into
+     * @param bool                       $overwrite     If the current filename already exists in the new directory, `TRUE` will cause the file to be overwritten, `FALSE` will cause the new filename to change
      *
      * @throws fValidationException When the directory passed is not a directory or is not readable
      *
@@ -698,8 +625,8 @@ class fFile implements Iterator
      */
     public function move($new_directory, $overwrite)
     {
-        if (! $new_directory instanceof fDirectory) {
-            $new_directory = new fDirectory($new_directory);
+        if (! $new_directory instanceof fFlysystemDirectory) {
+            $new_directory = new fFlysystemDirectory($new_directory);
         }
 
         return $this->rename($new_directory->getPath().$this->getName(), $overwrite);
@@ -717,7 +644,7 @@ class fFile implements Iterator
         $this->tossIfDeleted();
 
         if ($this->file_handle === null) {
-            $this->file_handle = fopen($this->file, 'r');
+            $this->file_handle = $this->getFlysystem()->readStream($this->getPath());
             $this->current_line = '';
             $this->current_line_number = 0;
         } elseif (! $this->valid()) {
@@ -745,6 +672,7 @@ class fFile implements Iterator
     public function output($headers, $filename = null)
     {
         $this->tossIfDeleted();
+        $metadata = $this->getFlysystem()->getMetadata($this->getPath());
 
         if (ob_get_level() > 0) {
             throw new fProgrammerException(
@@ -765,14 +693,14 @@ class fFile implements Iterator
                 header('Content-Disposition: attachment; filename="'.$filename.'"');
             }
             header('Cache-Control: ');
-            header('Content-Length: '.$this->getSize());
-            header('Content-Type: '.$this->getMimeType());
+            header('Content-Length: '.$contents['size']);
+            header('Content-Type: '.$contents['mime-type']);
             header('Expires: ');
             header('Last-Modified: '.$this->getMTime()->format('D, d M Y H:i:s'));
             header('Pragma: ');
         }
 
-        readfile($this->file);
+        $this->getFlysystem()->read($this->getPath());
 
         return $this;
     }
@@ -787,13 +715,28 @@ class fFile implements Iterator
      *
      * @param mixed $data The data to write to the file
      *
-     * @return string The contents of the file
+     * @return false|string The contents of the file
      */
-    public function read()
+    public function read(): string|false
     {
         $this->tossIfDeleted();
 
-        return file_get_contents($this->file);
+        return $this->getFlysystem()->read($this->getPath());
+    }
+
+    /**
+     * Stream the data from the file.
+     *
+     * This operation will read the data that has been written during the
+     * current transaction if one is in progress.
+     *
+     * @return false|resource The stream
+     */
+    public function stream()
+    {
+        $this->tossIfDeleted();
+
+        return $this->getFlysystem()->readStream($this->getPath());
     }
 
     /**
@@ -814,9 +757,9 @@ class fFile implements Iterator
     {
         $this->tossIfDeleted();
 
-        if (! $this->getParent()->isWritable()) {
+        if (! $this->getFlysystem()->has($this->getPath())) {
             throw new fEnvironmentException(
-                'The file, %s, can not be renamed because the directory containing it is not writable',
+                'The file, %s, can not be renamed because it does not exist',
                 $this->file
             );
         }
@@ -826,57 +769,40 @@ class fFile implements Iterator
             $new_filename = $this->getParent()->getPath().$new_filename;
         }
 
-        $info = fFilesystem::getPathInfo($new_filename);
-
-        if (! file_exists($info['dirname'])) {
-            throw new fProgrammerException(
-                'The new filename specified, %s, is inside of a directory that does not exist',
-                $new_filename
-            );
-        }
+        $info = fFlysystem::getPathInfo($new_filename);
 
         // Make the filename absolute
-        $new_filename = fDirectory::makeCanonical(realpath($info['dirname'])).$info['basename'];
+        $new_filename = fFlysystemDirectory::makeCanonical($info['dirname']).$info['basename'];
 
         if ($this->file == $new_filename && $overwrite) {
             return $this;
         }
 
-        if (file_exists($new_filename) && ! $overwrite) {
-            $new_filename = fFilesystem::makeUniqueName($new_filename);
+        if ($this->getFlysystem()->has($new_filename) && ! $overwrite) {
+            $new_filename = fFlysystem::makeUniqueName($new_filename);
         }
 
-        if (file_exists($new_filename)) {
-            if (! is_writable($new_filename)) {
+        if ($this->getFlysystem()->has($new_filename)) {
+            if ($this->getFlysystem()->getVisibility($new_filename) === 'private') {
                 throw new fEnvironmentException(
                     'The new filename specified, %s, already exists, but is not writable',
                     $new_filename
                 );
             }
 
-            if (fFilesystem::isInsideTransaction()) {
-                fFilesystem::recordWrite(new self($new_filename));
-            }
-            // Windows requires that the existing file be deleted before being replaced
-            unlink($new_filename);
-        } else {
-            $new_dir = new fDirectory($info['dirname']);
-            if (! $new_dir->isWritable()) {
-                throw new fEnvironmentException(
-                    'The new filename specified, %s, is inside of a directory that is not writable',
-                    $new_filename
-                );
+            if (fFlysystem::isInsideTransaction()) {
+                fFlysystem::recordWrite(new self($new_filename));
             }
         }
 
-        rename($this->file, $new_filename);
+        $this->getFlysystem()->rename($this->getPath(), $new_filename);
 
         // Allow filesystem transactions
-        if (fFilesystem::isInsideTransaction()) {
-            fFilesystem::recordRename($this->file, $new_filename);
+        if (fFlysystem::isInsideTransaction()) {
+            fFlysystem::recordRename($this->file, $new_filename);
         }
 
-        fFilesystem::updateFilenameMap($this->file, $new_filename);
+        fFlysystem::updateFilenameMap($this->file, $new_filename);
 
         return $this;
     }
@@ -930,21 +856,40 @@ class fFile implements Iterator
     {
         $this->tossIfDeleted();
 
-        if (! $this->isWritable()) {
-            throw new fEnvironmentException(
-                'This file, %s, can not be written to because it is not writable',
-                $this->file
-            );
-        }
-
         // Allow filesystem transactions
-        if (fFilesystem::isInsideTransaction()) {
-            fFilesystem::recordWrite($this);
+        if (fFlysystem::isInsideTransaction()) {
+            fFlysystem::recordWrite($this);
         }
 
-        file_put_contents($this->file, $data);
+        if (! is_resource($data)) {
+            $contents = fopen('php://temp', 'r+');
+            fwrite($contents, $data);
+        } else {
+            $contents = $data;
+        }
+
+        $this->getFlysystem()->putStream($this->getPath(), $contents);
 
         return $this;
+    }
+
+    public function getObjectUrl($use_public = false)
+    {
+        return $this->getFlysystem()->getObjectUrl($this->getPath(), $use_public);
+    }
+
+    /**
+     * @param null|string $path
+     */
+    public static function exists(string|null $path = null)
+    {
+        if (isset($this)) {
+            $path ??= $this->getPath();
+
+            return $this->getFlysystem()->has($path);
+        }
+
+        return static::getFlysystem()->has($path);
     }
 
     /**

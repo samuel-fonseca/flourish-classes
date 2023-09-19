@@ -13,13 +13,14 @@
         }
     ],
     "autoload": {
-        "classmap": ["."]
+        "classmap": ["."],
+		"files": ["src/Flourish/constructor_functions.php"]
     },
     "replace": {
         "flourish/flourish": "1.0.0"
     },
     "require": {
-        "php": ">=5.1.0"
+        "php": ">=8.1"
 	},
 	"extra": {
 		"branch-alias": {

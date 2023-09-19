@@ -1,23 +1,57 @@
 <?php
 /**
- * An exception caused when trying to get a value from an iterator and there is nothing left.
+ * Creates functions for all classes meant to be instantiated in client code to allow for constructor method chaining.
  *
- * @copyright  Copyright (c) 2007-2008 Will Bond
- * @author     Will Bond [wb] <will@flourishlib.com>
- * @license    http://flourishlib.com/license
+ * @copyright Copyright (c) 2008 Will Bond
  *
- * @see       http://flourishlib.com/fNoRemainingException
+ * @author Will Bond [wb] <will@flourishlib.com>
  *
- * @version    1.0.0b2
- * @changes    1.0.0b2  Fixed a typo in the documentation [wb, 2010-07-14]
- * @changes    1.0.0b   The initial implementation [wb, 2007-06-14]
+ * @license http://flourishlib.com/license
+ *
+ * @param null|mixed $date
  */
-class fNoRemainingException extends fExpectedException
+function fDate($date = null): fDate
 {
+    return new fDate($date);
+}
+
+function fDirectory($directory): fDirectory
+{
+    return new fDirectory($directory);
+}
+
+function fFile($file): fFile
+{
+    return new fFile($file);
+}
+
+function fImage($file_path): fImage
+{
+    return new fImage($file_path);
+}
+
+function fMoney($amount, $currency = null): fMoney
+{
+    return new fMoney($amount, $currency);
+}
+
+function fNumber($value, $scale = null): fNumber
+{
+    return new fNumber($value, $scale);
+}
+
+function fTime($time = null): fTime
+{
+    return new fTime($time);
+}
+
+function fTimestamp($datetime = null, $timezone = null): fTimestamp
+{
+    return new fTimestamp($datetime, $timezone);
 }
 
 /*
- * Copyright (c) 2007-2008 Will Bond <will@flourishlib.com>
+ * Copyright (c) 2008 Will Bond <will@flourishlib.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal

@@ -1,43 +1,16 @@
 <?php
+
+use Imarc\VAL\Traits\Flourish\hasFlysystem;
+use Imarc\VAL\Traits\Flourish\hasTempDir;
+
 /**
  * Represents an image on the filesystem, also provides image manipulation functionality.
- *
- * @copyright  Copyright (c) 2007-2010 Will Bond, others
- * @author     Will Bond [wb] <will@flourishlib.com>
- * @license    http://flourishlib.com/license
- *
- * @see       http://flourishlib.com/fImage
- *
- * @version    1.0.0b26
- * @changes    1.0.0b26  Fixed a bug where processing via ImageMagick was not properly setting the default RGB colorspace [wb, 2010-10-19]
- * @changes    1.0.0b25  Fixed the class to not generate multiple files when saving a JPG from an animated GIF or a TIF with a thumbnail [wb, 2010-09-12]
- * @changes    1.0.0b24  Updated class to use fCore::startErrorCapture() instead of `error_reporting()` [wb, 2010-08-09]
- * @changes    1.0.0b23  Fixed the class to detect when exec() is disabled and the function has a space before or after in the list [wb, 2010-07-21]
- * @changes    1.0.0b22  Fixed ::isImageCompatible() to handle certain JPGs created with Photoshop [wb, 2010-04-03]
- * @changes    1.0.0b21  Fixed ::resize() to allow dimensions to be numeric strings instead of just integers [wb, 2010-04-09]
- * @changes    1.0.0b20  Added ::append() [wb, 2010-03-15]
- * @changes    1.0.0b19  Updated for the new fFile API [wb-imarc, 2010-03-05]
- * @changes    1.0.0b18  Fixed a bug in ::saveChanges() that would incorrectly cause new filenames to be created, added the $overwrite parameter to ::saveChanges(), added the $allow_upsizing parameter to ::resize() [wb, 2010-03-03]
- * @changes    1.0.0b17  Fixed a couple of bug with using ImageMagick on Windows and BSD machines [wb, 2010-03-02]
- * @changes    1.0.0b16  Fixed some bugs with GD not properly handling transparent backgrounds and desaturation of .gif files [wb, 2009-10-27]
- * @changes    1.0.0b15  Added ::getDimensions() [wb, 2009-08-07]
- * @changes    1.0.0b14  Performance updates for checking image type and compatiblity [wb, 2009-07-31]
- * @changes    1.0.0b13  Updated class to work even if the file extension is wrong or not present, ::saveChanges() detects files that aren't writable [wb, 2009-07-29]
- * @changes    1.0.0b12  Fixed a bug where calling ::saveChanges() after unserializing would throw an exception related to the image processor [wb, 2009-05-27]
- * @changes    1.0.0b11  Added a ::crop() method [wb, 2009-05-27]
- * @changes    1.0.0b10  Fixed a bug with GD not saving changes to files ending in .jpeg [wb, 2009-03-18]
- * @changes    1.0.0b9   Changed ::processWithGD() to explicitly free the image resource [wb, 2009-03-18]
- * @changes    1.0.0b8   Updated for new fCore API [wb, 2009-02-16]
- * @changes    1.0.0b7   Changed @ error suppression operator to `error_reporting()` calls [wb, 2009-01-26]
- * @changes    1.0.0b6   Fixed ::cropToRatio() and ::resize() to always return the object even if nothing is to be done [wb, 2009-01-05]
- * @changes    1.0.0b5   Added check to see if exec() is disabled, which causes ImageMagick to not work [wb, 2009-01-03]
- * @changes    1.0.0b4   Fixed ::saveChanges() to not delete the image if no changes have been made [wb, 2008-12-18]
- * @changes    1.0.0b3   Fixed a bug with $jpeg_quality in ::saveChanges() from 1.0.0b2 [wb, 2008-12-16]
- * @changes    1.0.0b2   Changed some int casts to round() to fix ::resize() dimension issues [wb, 2008-12-11]
- * @changes    1.0.0b    The initial implementation [wb, 2007-12-19]
  */
-class fImage extends fFile
+class fFlysystemImage extends fFlysystemFile
 {
+    use hasFlysystem;
+    use hasTempDir;
+
     // The following constants allow for nice looking callbacks to static methods
     public const create = 'fImage::create';
 
@@ -84,18 +57,19 @@ class fImage extends fFile
      *
      * @param string $file_path   The path to the image
      * @param bool   $skip_checks If file checks should be skipped, which improves performance, but may cause undefined behavior - only skip these if they are duplicated elsewhere
+     * @param mixed  $path
      *
      * @throws fValidationException When no image was specified, when the image does not exist or when the path specified is not an image
      *
      * @return fImage
      */
-    public function __construct($file_path, $skip_checks = false)
+    public function __construct($path, $skip_checks = false)
     {
         self::determineProcessor();
 
-        parent::__construct($file_path, $skip_checks);
+        parent::__construct($path, $skip_checks);
 
-        if (! self::isImageCompatible($file_path)) {
+        if (! self::isImageCompatible($path)) {
             $valid_image_types = ['GIF', 'JPG', 'PNG'];
             if (self::$processor == 'imagemagick') {
                 $valid_image_types[] = 'TIF';
@@ -103,7 +77,7 @@ class fImage extends fFile
 
             throw new fValidationException(
                 'The image specified, %1$s, is not a valid %2$s file',
-                $file_path,
+                $path,
                 fGrammar::joinArray($valid_image_types, 'or')
             );
         }
@@ -117,35 +91,23 @@ class fImage extends fFile
      *
      * @param string $file_path The path to the new image
      * @param string $contents  The contents to write to the image
+     * @param mixed  $path
+     * @param mixed  $file
      *
      * @throws fValidationException When no image was specified or when the image already exists
-     *
-     * @return fImage
      */
-    public static function create($file_path, $contents)
+    public static function create($path, $file): self
     {
-        if (empty($file_path)) {
-            throw new fValidationException('No filename was specified');
-        }
-
-        if (file_exists($file_path)) {
+        if (static::getFlysystem()->has($path)) {
             throw new fValidationException(
                 'The image specified, %s, already exists',
-                $file_path
+                $path
             );
         }
 
-        $directory = fFilesystem::getPathInfo($file_path, 'dirname');
-        if (! is_writable($directory)) {
-            throw new fEnvironmentException(
-                'The file path specified, %s, is inside of a directory that is not writable',
-                $file_path
-            );
-        }
+        parent::create($path, $file);
 
-        file_put_contents($file_path, $contents);
-
-        $image = new self($file_path);
+        $image = new self($path);
 
         fFilesystem::recordCreate($image);
 
@@ -161,15 +123,88 @@ class fImage extends fFile
      */
     public static function getCompatibleMimetypes()
     {
-        self::determineProcessor();
+        return fImage::getCompatibleMimetypes();
+    }
 
-        $mimetypes = ['image/gif', 'image/jpeg', 'image/pjpeg', 'image/png'];
+    /**
+     * Gets the dimensions and type of an image stored on the filesystem.
+     *
+     * The `'type'` key will have one of the following values:
+     *
+     *  - `{null}` (File type is not supported)
+     *  - `'jpg'`
+     *  - `'gif'`
+     *  - `'png'`
+     *  - `'tif'`
+     *
+     * @param string $image_path The path to the image to get stats for
+     * @param string $element    The element to retrieve: `'type'`, `'width'`, `'height'`
+     *
+     * @throws fValidationException When the file specified is not an image
+     *
+     * @return mixed An associative array: `'type' => {mixed}, 'width' => {integer}, 'height' => {integer}`, or the element specified
+     */
+    public static function getInfo($image_path, $element = null)
+    {
+        $extension = strtolower(fFlysystem::getPathInfo($image_path, 'extension'));
 
-        if (self::$processor == 'imagemagick') {
-            $mimetypes[] = 'image/tiff';
+        if (! in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff'])) {
+            $type = self::getImageType($image_path);
+            if ($type === null) {
+                throw new fValidationException(
+                    'The file specified, %s, does not appear to be an image',
+                    $image_path
+                );
+            }
         }
 
-        return $mimetypes;
+        $valid_elements = ['type', 'width', 'height'];
+        if ($element !== null && ! in_array($element, $valid_elements)) {
+            throw new fProgrammerException(
+                'The element specified, %1$s, is invalid. Must be one of: %2$s.',
+                $element,
+                implode(', ', $valid_elements)
+            );
+        }
+
+        fCore::startErrorCapture(E_WARNING);
+        fCore::stopErrorCapture();
+        $image_info = getimagesize(static::getFlysystem()->getObjectUrl($image_path));
+
+        if ($image_info == false) {
+            throw new fValidationException(
+                'The file specified, %s, is not an image',
+                $image_path
+            );
+        }
+
+        $types = [
+            IMAGETYPE_GIF => 'gif',
+            IMAGETYPE_JPEG => 'jpg',
+            IMAGETYPE_PNG => 'png',
+            IMAGETYPE_TIFF_II => 'tif',
+            IMAGETYPE_TIFF_MM => 'tif',
+        ];
+
+        $output = [];
+        $output['width'] = $image_info[0];
+        $output['height'] = $image_info[1];
+        if (isset($types[$image_info[2]])) {
+            $output['type'] = $types[$image_info[2]];
+        } else {
+            $output['type'] = null;
+        }
+
+        if ($element !== null) {
+            return $output[$element];
+        }
+
+        return $output;
+    }
+
+    public function imageType(): string|null
+    {
+        return static::getImageType($this->getPath());
     }
 
     /**
@@ -187,16 +222,16 @@ class fImage extends fFile
     {
         self::determineProcessor();
 
-        if (! file_exists($image)) {
+        if (! static::exists($image)) {
             throw new fValidationException(
                 'The image specified, %s, does not exist',
                 $image
             );
         }
 
-        $type = self::getImageType($image);
+        $type = static::getImageType($image);
 
-        if ($type === null || ($type == 'tif' && self::$processor == 'gd')) {
+        if ($type === null || ($type == 'tif' && static::$processor == 'gd')) {
             return false;
         }
 
@@ -267,9 +302,9 @@ class fImage extends fFile
      * @param numeric $new_width   The width in pixels to crop the image to
      * @param numeric $new_height  The height in pixels to crop the image to
      *
-     * @return fImage The image object, to allow for method chaining
+     * @return static The image object, to allow for method chaining
      */
-    public function crop($crop_from_x, $crop_from_y, $new_width, $new_height)
+    public function crop($crop_from_x, $crop_from_y, $new_width, $new_height): static
     {
         $this->tossIfDeleted();
 
@@ -334,9 +369,9 @@ class fImage extends fFile
      * @param numeric $ratio_width  The width ratio to crop the image to
      * @param numeric $ratio_height The height ratio to crop the image to
      *
-     * @return fImage The image object, to allow for method chaining
+     * @return static The image object, to allow for method chaining
      */
-    public function cropToRatio($ratio_width, $ratio_height)
+    public function cropToRatio($ratio_width, $ratio_height): static
     {
         $this->tossIfDeleted();
 
@@ -401,9 +436,9 @@ class fImage extends fFile
      *
      * Desaturation does not occur until ::saveChanges() is called.
      *
-     * @return fImage The image object, to allow for method chaining
+     * @return static The image object, to allow for method chaining
      */
-    public function desaturate()
+    public function desaturate(): static
     {
         $this->tossIfDeleted();
 
@@ -462,6 +497,23 @@ class fImage extends fFile
     }
 
     /**
+     * Checks if the current image is an animated gif.
+     *
+     * @return bool If the image is an animated gif
+     */
+    public function isAnimatedGif()
+    {
+        $type = self::getImageType($this->file);
+        if ($type == 'gif') {
+            if (preg_match('#\x00\x21\xF9\x04.{4}\x00\x2C#s', $this->read())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Sets the image to be resized proportionally to a specific size canvas.
      *
      * Will only size down an image. This method uses resampling to ensure the
@@ -472,9 +524,9 @@ class fImage extends fFile
      * @param int  $canvas_height  The height of the canvas to fit the image on, `0` for no constraint
      * @param bool $allow_upsizing If the image is smaller than the desired canvas, the image will be increased in size
      *
-     * @return fImage The image object, to allow for method chaining
+     * @return static The image object, to allow for method chaining
      */
-    public function resize($canvas_width, $canvas_height, $allow_upsizing = false)
+    public function resize($canvas_width, $canvas_height, $allow_upsizing = false): static
     {
         $this->tossIfDeleted();
 
@@ -541,28 +593,6 @@ class fImage extends fFile
     }
 
     /**
-     *
-     */
-    public function getColorAt(int $x, int $y): ?array
-    {
-        $image = imagecreatefromstring(file_get_contents($this->getPath()));
-
-        if ($image === false) {
-            return null;
-        }
-
-        $rgb = imagecolorat($image, $x, $y);
-        $colors = imagecolorsforindex($image, $rgb);
-        imagedestroy($image);
-
-        return [
-            'red' => $colors['red'] ?? null,
-            'green' => $colors['green'] ?? null,
-            'blue' => $colors['blue'] ?? null,
-        ];
-    }
-
-    /**
      * Saves any changes to the image.
      *
      * If the file type is different than the current one, removes the current
@@ -573,7 +603,7 @@ class fImage extends fFile
      * new file to be created, the old file will not be deleted until the
      * transaction is committed.
      *
-     * @param string $new_image_type The new file format for the image: 'NULL` (no change), `'jpg'`, `'gif'`, `'png'`
+     * @param string $new_image_type The new file format for the image: 'null` (no change), `'jpg'`, `'gif'`, `'png'`
      * @param int    $jpeg_quality   The quality setting to use for JPEG images - this may be ommitted
      * @param bool   $overwrite      If an existing file with the same name and extension should be overwritten
      * @param string  :$new_image_type
@@ -627,38 +657,24 @@ class fImage extends fFile
             );
         }
 
-        if ($new_image_type && fFilesystem::getPathInfo($this->file, 'extension') != $new_image_type) {
+        if ($new_image_type && fFlysystem::getPathInfo($this->file, 'extension') != $new_image_type) {
             if ($overwrite) {
-                $path_info = fFilesystem::getPathInfo($this->file);
+                $path_info = fFlysystem::getPathInfo($this->file);
                 $output_file = $path_info['dirname'].$path_info['filename'].'.'.$new_image_type;
             } else {
-                $output_file = fFilesystem::makeUniqueName($this->file, $new_image_type);
+                $output_file = fFlysystem::makeUniqueName($this->file, $new_image_type);
             }
 
-            if (file_exists($output_file)) {
-                if (! is_writable($output_file)) {
+            if ($this->getFlysystem()->has($output_file)) {
+                if ($this->getFlysystem()->getVisibility($output_file) === 'private') {
                     throw new fEnvironmentException(
                         'Changes to the image can not be saved because the file, %s, is not writable',
                         $output_file
                     );
                 }
-            } else {
-                $output_dir = dirname($output_file);
-                if (! is_writable($output_dir)) {
-                    throw new fEnvironmentException(
-                        'Changes to the image can not be saved because the directory to save the new file, %s, is not writable',
-                        $output_dir
-                    );
-                }
             }
         } else {
             $output_file = $this->file;
-            if (! is_writable($output_file)) {
-                throw new fEnvironmentException(
-                    'Changes to the image can not be saved because the file, %s, is not writable',
-                    $output_file
-                );
-            }
         }
 
         // If we don't have any changes and no name change, just exit
@@ -668,23 +684,27 @@ class fImage extends fFile
 
         // Wrap changes to the image into the filesystem transaction
         if ($output_file == $this->file && fFilesystem::isInsideTransaction()) {
-            fFilesystem::recordWrite($this);
+            fFlysystem::recordWrite($this);
         }
+
+        $temp_file = fImage::create($this->getTempDir().$this->getName(), $this->read());
+        $old_file = $this->getPath();
+        $this->file = $output_file;
 
         if (self::$processor == 'gd') {
-            $this->processWithGD($output_file, $jpeg_quality);
+            $this->processWithGD($output_file, $temp_file, $jpeg_quality);
         } elseif (self::$processor == 'imagemagick') {
-            $this->processWithImageMagick($output_file, $jpeg_quality);
+            $this->processWithImageMagick($output_file, $temp_file, $jpeg_quality);
         }
 
-        $old_file = $this->file;
-        fFilesystem::updateFilenameMap($this->file, $output_file);
+        fFlysystem::updateFilenameMap($old_file, $output_file);
 
         // If we created a new image, delete the old one
         if ($output_file != $old_file) {
             $old_image = new self($old_file);
             $old_image->delete();
         }
+        $temp_file->delete();
 
         $this->pending_modifications = [];
 
@@ -692,76 +712,13 @@ class fImage extends fFile
     }
 
     /**
-     * Gets the dimensions and type of an image stored on the filesystem.
+     * @param null|string $path
      *
-     * The `'type'` key will have one of the following values:
-     *
-     *  - `{null}` (File type is not supported)
-     *  - `'jpg'`
-     *  - `'gif'`
-     *  - `'png'`
-     *  - `'tif'`
-     *
-     * @param string $image_path The path to the image to get stats for
-     * @param string $element    The element to retrieve: `'type'`, `'width'`, `'height'`
-     *
-     * @throws fValidationException When the file specified is not an image
-     *
-     * @return mixed An associative array: `'type' => {mixed}, 'width' => {integer}, 'height' => {integer}`, or the element specified
+     * @return bool
      */
-    protected static function getInfo($image_path, $element = null)
+    public static function exists(string|null $path = null)
     {
-        $extension = strtolower(fFilesystem::getPathInfo($image_path, 'extension'));
-        if (! in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff'])) {
-            $type = self::getImageType($image_path);
-            if ($type === null) {
-                throw new fValidationException(
-                    'The file specified, %s, does not appear to be an image',
-                    $image_path
-                );
-            }
-        }
-
-        fCore::startErrorCapture(E_WARNING);
-        $image_info = getimagesize($image_path);
-        fCore::stopErrorCapture();
-
-        if ($image_info == false) {
-            throw new fValidationException(
-                'The file specified, %s, is not an image',
-                $image_path
-            );
-        }
-
-        $valid_elements = ['type', 'width', 'height'];
-        if ($element !== null && ! in_array($element, $valid_elements)) {
-            throw new fProgrammerException(
-                'The element specified, %1$s, is invalid. Must be one of: %2$s.',
-                $element,
-                implode(', ', $valid_elements)
-            );
-        }
-
-        $types = [IMAGETYPE_GIF => 'gif',
-            IMAGETYPE_JPEG => 'jpg',
-            IMAGETYPE_PNG => 'png',
-            IMAGETYPE_TIFF_II => 'tif',
-            IMAGETYPE_TIFF_MM => 'tif', ];
-
-        $output = [];
-        $output['width'] = $image_info[0];
-        $output['height'] = $image_info[1];
-        if (isset($types[$image_info[2]])) {
-            $output['type'] = $types[$image_info[2]];
-        } else {
-            $output['type'] = null;
-        }
-
-        if ($element !== null) {
-            return $output[$element];
-        }
-
-        return $output;
+        return static::getFlysystem()->has($path);
     }
 
     /**
@@ -909,34 +866,34 @@ class fImage extends fFile
      *
      * @param string $image The image path to get the type for
      *
-     * @return null|string The type of the image - `'jpg'`, `'gif'`, `'png'` or `'tif'` - NULL if not one of those
+     * @return null|string The type of the image - `'jpg'`, `'gif'`, `'png'` or `'tif'` - null if not one of those
      */
     private static function getImageType($image)
     {
-        if (function_exists('exif_imagetype')) {
-            fCore::startErrorCapture();
-            $type = exif_imagetype($image);
-            fCore::stopErrorCapture();
-
-            if ($type === IMAGETYPE_JPEG) {
-                return 'jpg';
-            }
-
-            if ($type === IMAGETYPE_TIFF_II || $type === IMAGETYPE_TIFF_MM) {
-                return 'tif';
-            }
-
-            if ($type === IMAGETYPE_PNG) {
-                return 'png';
-            }
-
-            if ($type === IMAGETYPE_GIF) {
-                return 'gif';
-            }
-        }
+        // if (function_exists('exif_imagetype')) {
+        //  fCore::startErrorCapture();
+        //  $type = exif_imagetype(static::getFlysystem()->getObjectUrl($image));
+        //  fCore::stopErrorCapture();
+        //
+        //  if ($type === IMAGETYPE_JPEG) {
+        //      return 'jpg';
+        //  }
+        //
+        //  if ($type === IMAGETYPE_TIFF_II || $type === IMAGETYPE_TIFF_MM) {
+        //      return 'tif';
+        //  }
+        //
+        //  if ($type === IMAGETYPE_PNG) {
+        //      return 'png';
+        //  }
+        //
+        //  if ($type === IMAGETYPE_GIF) {
+        //      return 'gif';
+        //  }
+        // }
 
         // Fall back to legacy image detection.
-        $handle = fopen($image, 'r');
+        $handle = static::getFlysystem()->readStream($image);
         $contents = fread($handle, 12);
         fclose($handle);
 
@@ -1028,34 +985,17 @@ class fImage extends fFile
     }
 
     /**
-     * Checks if the current image is an animated gif.
-     *
-     * @return bool If the image is an animated gif
-     */
-    private function isAnimatedGif()
-    {
-        $type = self::getImageType($this->file);
-        if ($type == 'gif') {
-            if (preg_match('#\x00\x21\xF9\x04.{4}\x00\x2C#s', file_get_contents($this->file))) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * Processes the current image using GD.
      *
      * @param string $output_file  The file to save the image to
      * @param int    $jpeg_quality The JPEG quality to use
      */
-    private function processWithGD($output_file, $jpeg_quality): void
+    private function processWithGD(fImage $temp_file, $jpeg_quality): void
     {
-        $type = self::getImageType($this->file);
+        $type = self::getImageType($temp_file);
         $save_alpha = false;
 
-        $path_info = fFilesystem::getPathInfo($output_file);
+        $path_info = fFilesystem::getPathInfo($temp_file);
         $new_type = $path_info['extension'];
         $new_type = ($type == 'jpeg') ? 'jpg' : $type;
 
@@ -1065,18 +1005,18 @@ class fImage extends fFile
 
         switch ($type) {
             case 'gif':
-                $gd_res = imagecreatefromgif($this->file);
+                $gd_res = imagecreatefromgif($temp_file);
                 $save_alpha = true;
 
                 break;
 
             case 'jpg':
-                $gd_res = imagecreatefromjpeg($this->file);
+                $gd_res = imagecreatefromjpeg($temp_file);
 
                 break;
 
             case 'png':
-                $gd_res = imagecreatefrompng($this->file);
+                $gd_res = imagecreatefrompng($temp_file);
                 $save_alpha = true;
 
                 break;
@@ -1109,7 +1049,7 @@ class fImage extends fFile
                     $mod['old_height']
                 );
 
-                // Perform the crop operation
+            // Perform the crop operation
             } elseif ($mod['operation'] == 'crop') {
                 imagecopyresampled(
                     $new_gd_res,
@@ -1124,7 +1064,7 @@ class fImage extends fFile
                     $mod['height']
                 );
 
-                // Perform the desaturate operation
+            // Perform the desaturate operation
             } elseif ($mod['operation'] == 'desaturate') {
                 // Create a palette of grays
                 $grays = [];
@@ -1179,21 +1119,22 @@ class fImage extends fFile
         switch ($new_type) {
             case 'gif':
                 imagetruecolortopalette($gd_res, true, 256);
-                imagegif($gd_res, $output_file);
+                imagegif($gd_res, $temp_file->getPath());
 
                 break;
 
             case 'jpg':
-                imagejpeg($gd_res, $output_file, $jpeg_quality);
+                imagejpeg($gd_res, $temp_file->getPath(), $jpeg_quality);
 
                 break;
 
             case 'png':
-                imagepng($gd_res, $output_file);
+                imagepng($gd_res, $temp_file->getPath());
 
                 break;
         }
 
+        $this->write(fopen($gd_res, 'r'));
         imagedestroy($gd_res);
     }
 
@@ -1202,79 +1143,86 @@ class fImage extends fFile
      *
      * @param string $output_file  The file to save the image to
      * @param int    $jpeg_quality The JPEG quality to use
+     * @param mixed  $filename
      */
-    private function processWithImageMagick($output_file, $jpeg_quality): void
+    private function processWithImageMagick($filename, fImage $temp_file, $jpeg_quality): void
     {
-        $type = self::getImageType($this->file);
+        $type = fImage::getImageType($temp_file->getPath());
+
         if (fCore::checkOS('windows')) {
-            $command_line = str_replace(' ', '" "', self::$imagemagick_dir.'convert.exe');
+            $convert_command = str_replace(' ', '" "', self::$imagemagick_dir.'convert.exe');
         } else {
-            $command_line = escapeshellarg(self::$imagemagick_dir.'convert');
+            $convert_command = escapeshellarg(self::$imagemagick_dir.'convert');
         }
 
         if (self::$imagemagick_temp_dir) {
-            $command_line .= ' -set registry:temporary-path '.escapeshellarg(self::$imagemagick_temp_dir).' ';
+            $convert_command .= ' -set registry:temporary-path '.escapeshellarg(self::$imagemagick_temp_dir).' ';
         }
 
         // Determining in what format the file is going to be saved
-        $path_info = fFilesystem::getPathInfo($output_file);
-        $new_type = $path_info['extension'];
-        $new_type = ($new_type == 'jpeg') ? 'jpg' : $new_type;
+        $info = pathinfo($filename);
+        $new_type = $info['extension'];
+        // Normalize jpeg extension to jpg
+        if ($new_type === 'jpeg') {
+            $new_type = 'jpg';
+        }
 
         if (! in_array($new_type, ['gif', 'jpg', 'png'])) {
             $new_type = $type;
         }
 
-        $file = $this->file;
+        $file = $temp_file->getPath();
         if ($type != 'gif' || $new_type != 'gif') {
             $file .= '[0]';
         }
 
-        $command_line .= ' '.escapeshellarg($file).' ';
+        $convert_command .= ' '.escapeshellarg($file).' ';
 
         // Animated gifs need to be coalesced
-        if ($this->isAnimatedGif()) {
-            $command_line .= ' -coalesce ';
+        if ($temp_file->isAnimatedGif()) {
+            $convert_command .= ' -coalesce ';
         }
 
         // TIFF files should be set to a depth of 8
         if ($type == 'tif') {
-            $command_line .= ' -depth 8 ';
+            $convert_command .= ' -depth 8 ';
         }
 
         foreach ($this->pending_modifications as $mod) {
             // Perform the resize operation
             if ($mod['operation'] == 'resize') {
-                $command_line .= ' -resize "'.$mod['width'].'x'.$mod['height'];
+                $convert_command .= ' -resize "'.$mod['width'].'x'.$mod['height'];
                 if ($mod['old_width'] < $mod['width'] || $mod['old_height'] < $mod['height']) {
-                    $command_line .= '<';
+                    $convert_command .= '<';
                 }
-                $command_line .= '" ';
+                $convert_command .= '" ';
 
-                // Perform the crop operation
+            // Perform the crop operation
             } elseif ($mod['operation'] == 'crop') {
-                $command_line .= ' -crop '.$mod['width'].'x'.$mod['height'];
-                $command_line .= '+'.$mod['start_x'].'+'.$mod['start_y'];
-                $command_line .= ' -repage '.$mod['width'].'x'.$mod['height'].'+0+0 ';
+                $convert_command .= ' -crop '.$mod['width'].'x'.$mod['height'];
+                $convert_command .= '+'.$mod['start_x'].'+'.$mod['start_y'];
+                $convert_command .= ' -repage '.$mod['width'].'x'.$mod['height'].'+0+0 ';
 
-                // Perform the desaturate operation
+            // Perform the desaturate operation
             } elseif ($mod['operation'] == 'desaturate') {
-                $command_line .= ' -colorspace GRAY ';
+                $convert_command .= ' -colorspace GRAY ';
             }
         }
 
         // Default to the RGB colorspace
-        if (strpos($command_line, ' -colorspace ') === false) {
-            $command_line .= ' -colorspace sRGB ';
+        if (strpos($convert_command, ' -colorspace ') === false) {
+            $convert_command .= ' -colorspace sRGB ';
         }
 
         if ($new_type == 'jpg') {
-            $command_line .= ' -compress JPEG -quality '.$jpeg_quality.' ';
+            $convert_command .= ' -compress JPEG -quality '.$jpeg_quality.' ';
         }
+        $output_file = $temp_file->getParent().$info['basename'];
+        $convert_command .= ' '.escapeshellarg($new_type.':'.$output_file);
 
-        $command_line .= ' '.escapeshellarg($new_type.':'.$output_file);
+        $result = exec($convert_command);
 
-        exec($command_line);
+        $this->write(fopen($output_file, 'r'));
     }
 }
 
