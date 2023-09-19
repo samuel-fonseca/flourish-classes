@@ -9,6 +9,7 @@
  * @see       http://flourishlib.com/fORM
  *
  * @version    1.0.0b25
+ * @changes    1.0.0b26  Adds setClassNamesapce method for namespace fActiveRecord classes [sf, 2023-09-19]
  * @changes    1.0.0b25  Checks in registerHookCallback() if the callback has already been registered before registering it [sf, 2023-03-21]
  * @changes    1.0.0b24  Backwards Compatibility Break - Callbacks registered via ::registerRecordSetMethod() should now accept the `$method_name` in the position where the `$pointer` parameter used to be passed [wb, 2010-09-28]
  * @changes    1.0.0b23  Added the `'pre::replicate()'`, `'post::replicate()'` and `'cloned::replicate()'` hooks [wb, 2010-09-07]
@@ -69,6 +70,8 @@ class fORM
     public const mapClassToDatabase = 'fORM::mapClassToDatabase';
 
     public const mapClassToTable = 'fORM::mapClassToTable';
+
+    public const setClassNamespace = 'fORM::setClassNamespace';
 
     public const objectify = 'fORM::objectify';
 
@@ -202,13 +205,18 @@ class fORM
     private static $scalarize_callbacks = [];
 
     /**
+     * The namespace to prepend to class names when using ::defineActiveRecordClass().
+     *
+     * @var string
+     */
+    private static $class_namespace = '';
+
+    /**
      * Forces use as a static class.
      *
      * @return fORM
      */
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     /**
      * Calls the hook callbacks for the class and hook specified.
@@ -507,7 +515,11 @@ class fORM
             return get_class($class);
         }
 
-        return $class;
+        if (strpos($class, '\\') !== false) {
+            return $class;
+        }
+
+        return self::$class_namespace.$class;
     }
 
     /**
@@ -1162,10 +1174,15 @@ class fORM
     public static function tablize($class)
     {
         if (! isset(self::$class_table_map[$class])) {
-            self::$class_table_map[$class] = fGrammar::underscorize(fGrammar::pluralize($class));
+            self::$class_table_map[$class] = fGrammar::underscorize(fGrammar::pluralize(str_replace(static::$class_namespace, '', $class)));
         }
 
         return self::$class_table_map[$class];
+    }
+
+    public static function setClassNamespace(string $namespace): void
+    {
+        self::$class_namespace = $namespace;
     }
 }
 
