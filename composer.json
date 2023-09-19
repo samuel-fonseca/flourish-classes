@@ -13,8 +13,8 @@
         }
     ],
     "autoload": {
-        "classmap": ["."],
-		"files": ["src/Flourish/constructor_functions.php"]
+        "classmap": ["src"],
+		"files": ["src/constructor_functions.php"]
     },
     "replace": {
         "flourish/flourish": "1.0.0"
