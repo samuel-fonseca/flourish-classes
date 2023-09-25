@@ -1,6 +1,6 @@
 <?php
 
-use Imarc\VAL\Traits\Flourish\hasFlysystem;
+use Traits\hasFlysystem;
 use League\Flysystem\Filesystem;
 
 /**
@@ -97,9 +97,7 @@ class fFlysystem extends fFilesystem
      *
      * @return fFilesystem
      */
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     /**
      * sets flysystem on self, fFlysystemDirectory, fFlysystemFile and fFlysystemImage.
@@ -216,7 +214,7 @@ class fFlysystem extends fFilesystem
      *
      * @return fFlysystemDirectory|fFlysystemFile
      */
-    public static function createObject($content): fFlysystemFile|fFlysystemDirectory
+    public static function createObject($content)
     {
         if (is_array($content)) {
             $type = $content['type'] ?? false;

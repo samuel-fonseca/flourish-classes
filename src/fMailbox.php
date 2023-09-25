@@ -650,7 +650,7 @@ class fMailbox
      *
      * @psalm-return array<mixed|non-empty-list<array{filename: ''|mixed, mimetype: string, data: false|mixed|null|string}>>|null
      */
-    private static function handlePart($info, $structure): array|null
+    private static function handlePart($info, $structure)
     {
         if ($structure['type'] == 'multipart') {
             foreach ($structure['parts'] as $part) {
@@ -1331,7 +1331,7 @@ class fMailbox
      *
      * @return array|null The response from the server
      */
-    private function write($command, $expected = null): array|null
+    private function write($command, $expected = null)
     {
         if (! $this->connection) {
             throw new fProgrammerException('Unable to send data since the connection has already been closed');

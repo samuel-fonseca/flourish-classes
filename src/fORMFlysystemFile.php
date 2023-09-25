@@ -9,8 +9,7 @@
  * @see       http://flourishlib.com/fORMFlysystemFile
  */
 
-use Imarc\VAL\Traits\Flourish\hasTempDir;
-use League\Flysystem\Filesystem;
+use Traits\hasTempDir;
 
 class fORMFlysystemFile
 {
@@ -73,6 +72,8 @@ class fORMFlysystemFile
      * @var string
      */
     public const TEMP_DIRECTORY = '__flourish_temp';
+
+    private fFlysystem $filesystem;
 
     /**
      * Defines how columns can inherit uploaded files.
@@ -891,7 +892,7 @@ class fORMFlysystemFile
         if (strpos($value->getParent()->getPath(), self::TEMP_DIRECTORY.DIRECTORY_SEPARATOR) !== false) {
             $value = clone $value;
 
-        // Otherwise, the copy of the file must be placed in the temp dir so it is properly cleaned up
+            // Otherwise, the copy of the file must be placed in the temp dir so it is properly cleaned up
         } else {
             $upload_dir = self::$file_upload_columns[$class][$column];
 

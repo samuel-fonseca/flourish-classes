@@ -1,7 +1,7 @@
 <?php
 
-use Imarc\VAL\Traits\Flourish\hasFlysystem;
-use Imarc\VAL\Traits\Flourish\hasTempDir;
+use Traits\hasFlysystem;
+use Traits\hasTempDir;
 
 /**
  * Represents a file on the filesystem, also provides static file-related methods.
@@ -236,7 +236,7 @@ class fFlysystemFile extends fFile
      *
      * @return false|string The mime type of the file
      */
-    public static function determineMimeType($file, $contents = null): string|false
+    public static function determineMimeType($file, $contents = null)
     {
         $flysystem = static::getFlysystem();
 
@@ -402,7 +402,7 @@ class fFlysystemFile extends fFile
      *
      * @return array|string The extension of the file
      */
-    public function getExtension(): array|string
+    public function getExtension()
     {
         return fFlysystem::getPathInfo($this->file, 'extension');
     }
@@ -512,7 +512,7 @@ class fFlysystemFile extends fFile
      *
      * @return array|string The filename of the file
      */
-    public function getName(): array|string
+    public function getName()
     {
         // For some reason PHP calls the filename the basename, where filename is the filename minus the extension
         return fFlysystem::getPathInfo($this->file, 'basename');

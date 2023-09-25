@@ -473,7 +473,7 @@ class fFile implements Iterator
      *
      * @return array|string The extension of the file
      */
-    public function getExtension(): array|string
+    public function getExtension()
     {
         return fFilesystem::getPathInfo($this->file, 'extension');
     }
@@ -583,7 +583,7 @@ class fFile implements Iterator
      *
      * @return array|string The filename of the file
      */
-    public function getName(): array|string
+    public function getName()
     {
         // For some reason PHP calls the filename the basename, where filename is the filename minus the extension
         return fFilesystem::getPathInfo($this->file, 'basename');

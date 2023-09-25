@@ -485,7 +485,7 @@ class fJSON
      *
      * @return false|null|string The JSON string that is equivalent to the PHP value
      */
-    public static function encode($value): string|false|null
+    public static function encode($value)
     {
         if (is_resource($value)) {
             return 'null';

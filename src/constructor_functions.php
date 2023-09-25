@@ -7,45 +7,79 @@
  * @author Will Bond [wb] <will@flourishlib.com>
  *
  * @license http://flourishlib.com/license
- *
- * @param null|mixed $date
  */
-function fDate($date = null): fDate
+
+/**
+ * @param null|string $date
+ * @return fDate
+ */
+function fDate($date = null)
 {
     return new fDate($date);
 }
 
-function fDirectory($directory): fDirectory
+/**
+ * @param string $directory
+ * @return fDirectory
+ */
+function fDirectory($directory)
 {
     return new fDirectory($directory);
 }
 
-function fFile($file): fFile
+/**
+ * @param string $file
+ * @return fFile
+ */
+function fFile($file)
 {
     return new fFile($file);
 }
 
-function fImage($file_path): fImage
+/**
+ * @param string
+ * @return fImage
+ */
+function fImage($file_path)
 {
     return new fImage($file_path);
 }
 
-function fMoney($amount, $currency = null): fMoney
+/**
+ * @param float|int|null $amount
+ * @param string|null $currency
+ * @return fMoney
+ */
+function fMoney($amount, $currency = null)
 {
     return new fMoney($amount, $currency);
 }
 
-function fNumber($value, $scale = null): fNumber
+/**
+ * @param int|null $value
+ * @param int|null $scale
+ * @return fNumber
+ */
+function fNumber($value, $scale = null)
 {
     return new fNumber($value, $scale);
 }
 
-function fTime($time = null): fTime
+/**
+ * @param null|string $time
+ * @return fTime
+ */
+function fTime($time = null)
 {
     return new fTime($time);
 }
 
-function fTimestamp($datetime = null, $timezone = null): fTimestamp
+/**
+ * @param null|string $datetime
+ * @param null|string $timezone
+ * @return fTimestamp
+ */
+function fTimestamp($datetime = null, $timezone = null)
 {
     return new fTimestamp($datetime, $timezone);
 }

@@ -20,11 +20,16 @@
         "flourish/flourish": "1.0.0"
     },
     "require": {
-        "php": ">=7.2"
+        "php": ">=7.4",
+        "league/flysystem": "^1.0",
+        "aws/aws-sdk-php": "^3.281"
 	},
 	"extra": {
 		"branch-alias": {
 			"dev-master": "0.9.x-dev"
 		}
-	}
+	},
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.27"
+    }
 }

@@ -1,6 +1,6 @@
 <?php
 
-use Imarc\VAL\Traits\Flourish\hasFlysystem;
+use Traits\hasFlysystem;
 
 /**
  * Represents a directory on the filesystem, also provides static directory-related methods.
@@ -176,7 +176,7 @@ class fFlysystemDirectory
      *
      * @return array|string The name of the directory
      */
-    public function getName(): array|string
+    public function getName()
     {
         return fFlysystem::getPathInfo($this->directory, 'basename');
     }

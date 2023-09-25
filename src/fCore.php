@@ -360,7 +360,7 @@ class fCore
      *
      * @psalm-return callable|non-empty-list<string>
      */
-    public static function callback($callback): array|callable
+    public static function callback($callback)
     {
         if (is_string($callback) && strpos($callback, '::') !== false) {
             return explode('::', $callback);

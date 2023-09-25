@@ -195,7 +195,7 @@ class fHTML
      *
      * @psalm-return array<string>|string
      */
-    public static function prepare($content): array|string
+    public static function prepare($content)
     {
         if ($content === null) {
             return '';

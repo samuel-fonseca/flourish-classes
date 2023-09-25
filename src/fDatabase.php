@@ -737,7 +737,7 @@ class fDatabase
      *
      * @psalm-return fResult|fUnbufferedResult|list<fResult|fUnbufferedResult>
      */
-    public function query($statement): array|fResult|fUnbufferedResult
+    public function query($statement)
     {
         $args = func_get_args();
         $params = array_slice($args, 1);
@@ -860,7 +860,7 @@ class fDatabase
      *
      * @psalm-return fResult|fUnbufferedResult|list<fResult|fUnbufferedResult>
      */
-    public function translatedQuery($sql): array|fResult|fUnbufferedResult
+    public function translatedQuery($sql)
     {
         $args = func_get_args();
         $queries = $this->prepareSQL(
@@ -895,7 +895,7 @@ class fDatabase
      *
      * @return fResult|fUnbufferedResult The result object for the unbuffered query
      */
-    public function unbufferedQuery($statement): fResult|fUnbufferedResult
+    public function unbufferedQuery($statement)
     {
         $args = func_get_args();
         $params = array_slice($args, 1);
@@ -933,7 +933,7 @@ class fDatabase
      *
      * @return fResult|fUnbufferedResult The result object for the unbuffered query
      */
-    public function unbufferedTranslatedQuery($sql): fResult|fUnbufferedResult
+    public function unbufferedTranslatedQuery($sql)
     {
         $args = func_get_args();
         $queries = $this->prepareSQL(
@@ -1487,7 +1487,7 @@ class fDatabase
      *
      * @return null|string The escaped blob
      */
-    private function escapeBlob($value): string|null
+    private function escapeBlob($value)
     {
         if ($value === null) {
             return 'NULL';
@@ -1532,7 +1532,7 @@ class fDatabase
      *
      * @return null|string The database equivalent of the boolean passed
      */
-    private function escapeBoolean($value): string|null
+    private function escapeBoolean($value)
     {
         if ($value === null) {
             return 'NULL';
@@ -1734,7 +1734,7 @@ class fDatabase
                     $output .= "''";
                 }
 
-            // ASCII text is normal
+                // ASCII text is normal
             } else {
                 $output = "'".str_replace("'", "''", $value)."'";
             }
@@ -1947,7 +1947,7 @@ class fDatabase
             if ($match[0] == "'") {
                 $cur_sql .= $match;
 
-            // Handle the SQL, exploding on any ; that isn't escaped with a \
+                // Handle the SQL, exploding on any ; that isn't escaped with a \
             } else {
                 $sql_strings = preg_split('#(?<!\\\\);#', $match);
                 $cur_sql .= $sql_strings[0];
@@ -2817,7 +2817,7 @@ class fDatabase
                         }
                         $value_number++;
 
-                    // Other placeholder/value combos just get added
+                        // Other placeholder/value combos just get added
                     } else {
                         $placeholders++;
                         $value_number++;
@@ -2825,7 +2825,7 @@ class fDatabase
                         $chunked_values[$number][] = $value;
                     }
 
-                // A piece of SQL
+                    // A piece of SQL
                 } else {
                     $new_sql .= $piece;
                 }
@@ -3101,7 +3101,7 @@ class fDatabase
      *
      * @return false|string The binary data
      */
-    private function unescapeBlob($value): string|false
+    private function unescapeBlob($value)
     {
         $this->connectToDatabase();
 

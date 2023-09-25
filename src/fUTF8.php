@@ -677,7 +677,7 @@ class fUTF8
      *
      * @psalm-return array<mixed|string>|false|string
      */
-    public static function clean($value): array|false|string
+    public static function clean($value)
     {
         if (! is_array($value)) {
             if (self::$can_ignore_invalid === null) {

@@ -1,7 +1,7 @@
 <?php
 
-use Imarc\VAL\Traits\Flourish\hasFlysystem;
-use Imarc\VAL\Traits\Flourish\hasTempDir;
+use Traits\hasTempDir;
+use Traits\hasFlysystem;
 
 /**
  * Represents an image on the filesystem, also provides image manipulation functionality.
@@ -202,7 +202,7 @@ class fFlysystemImage extends fFlysystemFile
         return $output;
     }
 
-    public function imageType(): string|null
+    public function imageType()
     {
         return static::getImageType($this->getPath());
     }
@@ -1049,7 +1049,7 @@ class fFlysystemImage extends fFlysystemFile
                     $mod['old_height']
                 );
 
-            // Perform the crop operation
+                // Perform the crop operation
             } elseif ($mod['operation'] == 'crop') {
                 imagecopyresampled(
                     $new_gd_res,
@@ -1064,7 +1064,7 @@ class fFlysystemImage extends fFlysystemFile
                     $mod['height']
                 );
 
-            // Perform the desaturate operation
+                // Perform the desaturate operation
             } elseif ($mod['operation'] == 'desaturate') {
                 // Create a palette of grays
                 $grays = [];
@@ -1197,13 +1197,13 @@ class fFlysystemImage extends fFlysystemFile
                 }
                 $convert_command .= '" ';
 
-            // Perform the crop operation
+                // Perform the crop operation
             } elseif ($mod['operation'] == 'crop') {
                 $convert_command .= ' -crop '.$mod['width'].'x'.$mod['height'];
                 $convert_command .= '+'.$mod['start_x'].'+'.$mod['start_y'];
                 $convert_command .= ' -repage '.$mod['width'].'x'.$mod['height'].'+0+0 ';
 
-            // Perform the desaturate operation
+                // Perform the desaturate operation
             } elseif ($mod['operation'] == 'desaturate') {
                 $convert_command .= ' -colorspace GRAY ';
             }
